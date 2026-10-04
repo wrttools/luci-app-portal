@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: luci-app-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-04 22:00+0800\n"
+"POT-Creation-Date: 2026-10-04 22:30+0800\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -11,6 +11,66 @@ msgid "Portal"
 msgstr ""
 
 msgid "Settings"
+msgstr ""
+
+msgid "Service status"
+msgstr ""
+
+msgid "Querying…"
+msgstr ""
+
+msgid "Service state unknown."
+msgstr ""
+
+msgid "Service"
+msgstr ""
+
+msgid "Running"
+msgstr ""
+
+msgid "Stopped"
+msgstr ""
+
+msgid "PID %d"
+msgstr ""
+
+msgid "Listening"
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+msgid "nothing is bound to port %d"
+msgstr ""
+
+msgid "Port"
+msgstr ""
+
+msgid "Address"
+msgstr ""
+
+msgid "unknown"
+msgstr ""
+
+msgid "%d baked into links.json"
+msgstr ""
+
+msgid "links.json has not been generated yet"
+msgstr ""
+
+msgid "The portal is not serving requests. Change a setting and use \"Save & Apply\" to restart it; if the port stays unbound, another service may already be using it."
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Re-reads the running instance, it does not change the configuration."
+msgstr ""
+
+msgid "Status query failed: %s"
 msgstr ""
 
 msgid "A static HTML portal served by its own uhttpd instance on a dedicated port. Settings are persisted in uci and baked into links.json on apply."

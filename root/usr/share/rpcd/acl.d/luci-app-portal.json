@@ -11,7 +11,7 @@
 				"/etc/portal/www/icons/*": [ "list", "read" ]
 			},
 			"ubus": {
-				"luci.portal": [ "scan" ]
+				"luci.portal": [ "scan", "status" ]
 			},
 			"uci": [ "portal" ]
 		},

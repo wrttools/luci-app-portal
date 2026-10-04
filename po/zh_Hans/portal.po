@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: luci-app-portal\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-04 22:00+0800\n"
-"PO-Revision-Date: 2026-10-04 22:00+0800\n"
+"POT-Creation-Date: 2026-10-04 22:30+0800\n"
+"PO-Revision-Date: 2026-10-04 22:30+0800\n"
 "Last-Translator: cocolight\n"
 "Language-Team: Chinese (Simplified)\n"
 "Language: zh_Hans\n"
@@ -13,13 +13,73 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 msgid "Portal"
-msgstr "导航页"
+msgstr "门户"
 
 msgid "Settings"
 msgstr "设置"
 
+msgid "Service status"
+msgstr "运行状态"
+
+msgid "Querying…"
+msgstr "查询中…"
+
+msgid "Service state unknown."
+msgstr "服务状态未知。"
+
+msgid "Service"
+msgstr "服务"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Stopped"
+msgstr "未运行"
+
+msgid "PID %d"
+msgstr "PID %d"
+
+msgid "Listening"
+msgstr "监听"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "nothing is bound to port %d"
+msgstr "端口 %d 未绑定"
+
+msgid "Port"
+msgstr "端口"
+
+msgid "Address"
+msgstr "访问地址"
+
+msgid "unknown"
+msgstr "未知"
+
+msgid "%d baked into links.json"
+msgstr "已生成 %d 个书签到 links.json"
+
+msgid "links.json has not been generated yet"
+msgstr "links.json 尚未生成"
+
+msgid "The portal is not serving requests. Change a setting and use \"Save & Apply\" to restart it; if the port stays unbound, another service may already be using it."
+msgstr "门户当前没有在提供服务。修改任一设置后点「保存并应用」重启服务；若端口仍未绑定，可能有其他服务已占用该端口。"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Re-reads the running instance, it does not change the configuration."
+msgstr "仅重新读取运行中的实例状态，不会修改配置。"
+
+msgid "Status query failed: %s"
+msgstr "状态查询失败：%s"
+
 msgid "A static HTML portal served by its own uhttpd instance on a dedicated port. Settings are persisted in uci and baked into links.json on apply."
-msgstr "由独立 uhttpd 实例在指定端口上提供的静态 HTML 导航页。配置保存在 uci 中，应用后写入 links.json。"
+msgstr "由独立 uhttpd 实例在指定端口上提供服务的静态 HTML 门户。设置保存在 uci 中，应用时烘焙进 links.json。"
 
 msgid "General"
 msgstr "常规"
@@ -28,7 +88,7 @@ msgid "Listen port"
 msgstr "监听端口"
 
 msgid "Ports 80 and 8080 are reserved by the main web server."
-msgstr "端口 80/8080 已被主 Web 服务器占用。"
+msgstr "80 与 8080 端口已被主 Web 服务器占用。"
 
 msgid "This port is already used by the main uhttpd instance."
 msgstr "该端口已被主 uhttpd 实例占用。"
@@ -46,7 +106,7 @@ msgid "Background image"
 msgstr "背景图片"
 
 msgid "Uploaded to /etc/portal/www/bg, takes precedence over the colour."
-msgstr "上传到 /etc/portal/www/bg，优先于背景颜色。"
+msgstr "上传到 /etc/portal/www/bg，优先级高于背景颜色。"
 
 msgid "Bookmarks"
 msgstr "书签"
@@ -58,13 +118,13 @@ msgid "Name"
 msgstr "名称"
 
 msgid "URL"
-msgstr "链接"
+msgstr "URL"
 
 msgid "Icon"
 msgstr "图标"
 
 msgid "An emoji or an absolute image URL."
-msgstr "emoji 表情或图片的完整 URL。"
+msgstr "emoji 或图片的绝对 URL。"
 
 msgid "Icon file"
 msgstr "图标文件"
@@ -88,13 +148,13 @@ msgid "Discovery"
 msgstr "服务发现"
 
 msgid "Scan local services & add (disabled)"
-msgstr "扫描本机服务并添加（禁用状态）"
+msgstr "扫描本地服务并添加（默认禁用）"
 
 msgid "Service %d"
 msgstr "服务 %d"
 
 msgid "No new local services found."
-msgstr "未发现新的本机服务。"
+msgstr "未发现新的本地服务。"
 
 msgid "Added %d disabled bookmark(s) - tick the ones you want and apply."
-msgstr "已添加 %d 个禁用书签，勾选需要的再点「保存并应用」。"
+msgstr "已添加 %d 个默认禁用的书签，勾选需要的后应用即可。"

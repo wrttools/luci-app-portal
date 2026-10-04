@@ -20,6 +20,11 @@ const callGenerate = rpc.declare({
 	method: 'generate'
 });
 
+const callStatus = rpc.declare({
+	object: 'luci.portal',
+	method: 'status'
+});
+
 /*
  * Refuse ports that the main uhttpd instance already listens on. The uhttpd
  * configuration is read client side, so it is also listed in the read ACL.
@@ -44,6 +49,95 @@ function port_in_use(port) {
 	return in_use;
 }
 
+/* ------------------------------------------------------ service status -- */
+
+function badge(text, ok) {
+	return E('span', {
+		style: 'display:inline-block;padding:1px 8px;border-radius:9px;color:#fff;' +
+			'font-size:90%;white-space:nowrap;background:' + (ok ? '#2e7d32' : '#c62828')
+	}, text);
+}
+
+function status_row(label, value) {
+	return E('tr', { class: 'tr' }, [
+		E('td', { class: 'td left', style: 'width:32%' }, label),
+		E('td', { class: 'td left' }, value)
+	]);
+}
+
+/*
+ * A missing listener is the interesting case: procd keeps restarting a daemon
+ * that dies immediately, so "running" alone would be misleading.
+ */
+function status_view(st) {
+	if (!st)
+		return [ E('em', {}, _('Service state unknown.')) ];
+
+	const nodes = [
+		E('table', { class: 'table' }, [
+			status_row(_('Service'), [
+				badge(st.running ? _('Running') : _('Stopped'), st.running),
+				st.running && st.pid ? ' ' + _('PID %d').format(st.pid) : ''
+			]),
+			status_row(_('Listening'), [
+				badge(st.listening ? _('Yes') : _('No'), st.listening),
+				st.listening ? '' : ' ' + _('nothing is bound to port %d').format(st.port)
+			]),
+			status_row(_('Port'), String(st.port)),
+			status_row(_('Address'), st.url
+				? E('a', { href: st.url, target: '_blank', rel: 'noopener' }, st.url)
+				: E('em', {}, _('unknown'))),
+			status_row(_('Bookmarks'), st.generated
+				? _('%d baked into links.json').format(st.links)
+				: E('em', {}, _('links.json has not been generated yet')))
+		])
+	];
+
+	if (!st.running || !st.listening) {
+		nodes.push(E('p', { class: 'alert-message warning' }, [
+			_('The portal is not serving requests. Change a setting and use "Save & Apply" to restart it; if the port stays unbound, another service may already be using it.')
+		]));
+	}
+
+	return nodes;
+}
+
+function status_panel() {
+	const body = E('div', { style: 'margin-bottom:.6em' }, E('em', {}, _('Querying…')));
+
+	function refresh() {
+		body.replaceChildren(E('em', {}, _('Querying…')));
+
+		return callStatus().then(function(st) {
+			body.replaceChildren(...status_view(st));
+		}).catch(function(err) {
+			body.replaceChildren(E('em', {},
+				_('Status query failed: %s').format((err && err.message) || err)));
+		});
+	}
+
+	const node = E('div', { class: 'cbi-section' }, [
+		E('h3', {}, _('Service status')),
+		body,
+		E('div', { style: 'margin-top:.8em' }, [
+			E('button', {
+				class: 'btn cbi-button cbi-button-action',
+				click: function(ev) {
+					ev.preventDefault();
+					return refresh();
+				}
+			}, _('Refresh')),
+			' ',
+			E('span', { class: 'cbi-value-description' },
+				_('Re-reads the running instance, it does not change the configuration.'))
+		])
+	]);
+
+	node.refresh = refresh;
+
+	return node;
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -54,6 +148,8 @@ return view.extend({
 
 	render: function() {
 		let m, s, o;
+
+		const status = status_panel();
 
 		m = new form.Map('portal', _('Portal'),
 			_('A static HTML portal served by its own uhttpd instance on a dedicated ' +
@@ -134,6 +230,8 @@ return view.extend({
 			return callGenerate().then(function(result) {
 				ui.addNotification(null, E('p', {}, _('Regenerated: %d bookmark(s).')
 					.format((result && result.links) || 0)), 'info');
+
+				return status.refresh();
 			});
 		};
 
@@ -180,6 +278,11 @@ return view.extend({
 			});
 		};
 
-		return m.render();
+		return m.render().then(function(mapNode) {
+			/* The panel starts out empty, fill it once the map is built. */
+			return status.refresh().then(function() {
+				return E('div', {}, [ status, mapNode ]);
+			});
+		});
 	}
 });

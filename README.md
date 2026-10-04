@@ -34,6 +34,7 @@ the portal page itself never needs a backend.
 | Bookmarks | Add, drag-to-reorder, enable/disable; emoji, remote URL or uploaded icon |
 | Appearance | Page title, CSS background colour or an uploaded background image |
 | Discovery | Scans `/proc/net/tcp[6]` for locally reachable listening services and adds them as *disabled* bookmarks in one click |
+| Status panel | The settings page reports whether the daemon is running *and* whether it actually owns the port, plus the URL and the baked bookmark count |
 | Static output | Everything is persisted in `uci` and rendered into `links.json`; the page is plain HTML/JS |
 | No `luci-compat` | Pure JavaScript view on the modern LuCI stack — no Lua runtime required |
 
@@ -48,10 +49,10 @@ the portal page itself never needs a backend.
 
 ```sh
 # OpenWrt 25.12 and newer (apk)
-apk add --allow-untrusted ./luci-app-portal-2.0.0-r1.apk
+apk add --allow-untrusted ./luci-app-portal-2.0.0-r3.apk
 
 # OpenWrt 24.10 and older (opkg), built from the matching SDK
-opkg install ./luci-app-portal_2.0.0-r1_all.ipk
+opkg install ./luci-app-portal_2.0.0-r3_all.ipk
 ```
 
 Then open **Services → Portal** in LuCI, or go straight to
@@ -79,11 +80,20 @@ ubus call luci.portal generate
 # { "ok": true, "title": "My Portal", "links": 2 }
 
 ubus call luci.portal scan
-# { "lan_ip": "192.168.1.1", "ports": [ { "port": "80", "svc": "http" } ] }
+# { "lan_ip": "192.168.1.1", "ports": [ { "port": 80, "svc": "http" } ] }
+
+ubus call luci.portal status
+# { "ok": true, "running": true, "pid": 1234, "port": 8180, "listening": true,
+#   "url": "http://192.168.1.1:8180/", "links": 2, "generated": true,
+#   "generated_at": 1791124783 }
 
 # The same file is a command line tool (no rpcd involved):
 ucode /usr/share/rpcd/ucode/portal.uc --cli generate
+ucode /usr/share/rpcd/ucode/portal.uc --cli status
 ```
+
+`status` separates *alive* from *listening* on purpose: procd respawns a daemon
+that dies on startup, so a pid alone would hide a portal that never answers.
 
 ## uci reference
 
@@ -104,6 +114,25 @@ config link
 `links.json` is regenerated automatically whenever `/etc/config/portal` changes
 (LuCI *Save & Apply*, or `uci commit` plus `/etc/init.d/portal reload`). The
 **Regenerate links.json now** button forces it.
+
+## Troubleshooting
+
+The settings page has a **Service status** panel; the same numbers come from the
+CLI:
+
+```sh
+ucode /usr/share/rpcd/ucode/portal.uc --cli status
+```
+
+| Symptom | Cause |
+|---|---|
+| `running: true` but `listening: false` | The daemon is up but cannot bind — another service already holds the port |
+| `running: false` | It was never started: `/etc/init.d/portal enable && /etc/init.d/portal start` |
+| Page loads, but no bookmarks | `links.json` missing or empty — press **Regenerate links.json now** |
+| Works from the router (`curl http://127.0.0.1:PORT/`) but not from a client | Firewall/zone rule blocks that port for that client |
+
+The instance binds `0.0.0.0:<port>` — every interface, IPv4. Binding a single
+address would need an edit to `/etc/init.d/portal`.
 
 ## Building
 
@@ -169,7 +198,8 @@ GPL-2.0-only. See [LICENSE](LICENSE).
 | 独立端口 | 再起一个 `uhttpd` 实例，端口自选，并校验是否与主 LuCI 冲突 |
 | 书签 | 增删、拖动排序、启用/禁用；图标支持 emoji、远程 URL 或上传文件 |
 | 外观 | 页面标题、CSS 背景色，或上传背景图 |
-| 服务发现 | 读取 `/proc/net/tcp[6]`，一键把本机可访问的服务加成**禁用**书签 |
+| Discovery | 读取 `/proc/net/tcp[6]`，一键把本机可访问的服务加成**禁用**书签 |
+| 运行状态 | 设置页直接显示进程是否存活、端口是否真的被监听、访问地址与已生成的书签数 |
 | 纯静态 | 配置存 `uci`，生成 `links.json` 供前端读取，页面本身不需要后端 |
 | 不依赖 `luci-compat` | 现代 LuCI（JavaScript 视图 + ucode 后端），无需 Lua 运行时 |
 
@@ -179,10 +209,26 @@ GPL-2.0-only. See [LICENSE](LICENSE).
 **安装**：
 
 ```sh
-apk add --allow-untrusted ./luci-app-portal-2.0.0-r1.apk
+apk add --allow-untrusted ./luci-app-portal-2.0.0-r3.apk
 ```
 
 然后进 LuCI 的 **服务 → Portal**，或直接访问 `http://<路由器>:8180/`。
+
+**排查**：设置页顶部有「运行状态」面板，「进程存活」与「端口已监听」是分开判定的 ——
+procd 会不断重启一个启动即退出的守护进程，只看 PID 会以为一切正常。命令行等价：
+
+```sh
+ucode /usr/share/rpcd/ucode/portal.uc --cli status
+```
+
+| 现象 | 原因 |
+|---|---|
+| `running: true` 但 `listening: false` | 进程活着但绑不上端口，通常已被其他服务占用 |
+| `running: false` | 从未启动：`/etc/init.d/portal enable && /etc/init.d/portal start` |
+| 页面能开但没有书签 | `links.json` 缺失或为空，点「立即重新生成 links.json」 |
+| 路由器上 `curl http://127.0.0.1:端口/` 通、客户端不通 | 防火墙/区域规则拦了该端口 |
+
+实例绑定 `0.0.0.0:<端口>`（所有网卡，IPv4）；要只绑某个地址需自行改 `/etc/init.d/portal`。
 
 **配置**：改动 `/etc/config/portal` 后（LuCI 点「保存并应用」即可）会自动重新生成
 `links.json`；也可以点页面上的「立即重新生成」按钮强制刷新。改端口同样会自动重启

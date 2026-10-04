@@ -8,7 +8,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_VERSION:=2.0.0
-PKG_RELEASE:=1
+PKG_RELEASE:=3
+
+# luci.mk derives PKG_PO_VERSION from git and, without a git checkout, from the
+# newest file mtime in the package directory. That changes on every rebuild and
+# leaves stale luci-i18n-* artefacts behind, so pin it to the package version.
+PKG_PO_VERSION:=$(PKG_VERSION)
 
 PKG_MAINTAINER:=cocolight
 PKG_LICENSE:=GPL-2.0-only
