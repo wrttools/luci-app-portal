@@ -1,0 +1,55 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #0e1116 center / cover no-repeat;
+  color: #e6e6e6;
+  min-height: 100vh;
+}
+.wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
+h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  text-decoration: none;
+  color: inherit;
+  backdrop-filter: blur(6px);
+  transition: .15s;
+}
+.card:hover {
+  background: rgba(255,255,255,.12);
+  transform: translateY(-2px);
+}
+.card .ico {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+}
+.card .ico img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.card .name {
+  font-size: 13px;
+  text-align: center;
+  word-break: break-word;
+}

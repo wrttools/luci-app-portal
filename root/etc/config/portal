@@ -1,0 +1,16 @@
+config portal
+	option port '8180'
+	option title 'My Portal'
+	option background '#0e1116'
+
+config link
+	option name 'LuCI'
+	option url 'http://192.168.1.1/cgi-bin/luci'
+	option icon '💡'
+	option enabled '1'
+
+config link
+	option name 'AdGuard Home'
+	option url 'http://192.168.1.1:3000'
+	option icon '🛡️'
+	option enabled '1'
