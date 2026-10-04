@@ -1,27 +1,47 @@
 #!/bin/sh /etc/rc.common
 # Pure-HTML portal: dedicated uhttpd instance on a user-configured port.
+
 USE_PROCD=1
 START=95
 STOP=10
 
+PORTAL_UCODE=/usr/share/rpcd/ucode/portal.uc
+PORTAL_WWW=/etc/portal/www
+
+prepare_www() {
+	mkdir -p "$PORTAL_WWW/icons" "$PORTAL_WWW/bg"
+	[ -f "$PORTAL_WWW/index.html" ] || cp -r /usr/share/portal/www/. "$PORTAL_WWW/" 2>/dev/null
+}
+
+# Re-bake links.json from uci. The generator is the same ucode file that rpcd
+# loads as the `luci.portal` ubus object; `--cli` selects its command mode.
+generate_links() {
+	[ -f "$PORTAL_UCODE" ] || return 0
+	ucode "$PORTAL_UCODE" --cli generate >/dev/null 2>&1
+}
+
 start_service() {
-    local port title
-    port=$(uci -q get portal.@portal[0].port || echo 8180)
-    title=$(uci -q get portal.@portal[0].title || echo Portal)
+	local port title
 
-    [ -d /etc/portal/www ] || mkdir -p /etc/portal/www/icons /etc/portal/www/bg
-    [ -f /etc/portal/www/index.html ] || cp -r /usr/share/portal/www/. /etc/portal/www/ 2>/dev/null
+	port=$(uci -q get portal.@portal[0].port || echo 8180)
+	title=$(uci -q get portal.@portal[0].title || echo Portal)
 
-    procd_open_instance
-    procd_set_param command /usr/sbin/uhttpd -f -h /etc/portal/www -p ":$port" -r "$title"
-    procd_set_param respawn
-    procd_close_instance
+	prepare_www
+	generate_links
+
+	procd_open_instance
+	procd_set_param command /usr/sbin/uhttpd -f -h "$PORTAL_WWW" -p ":$port" -r "$title"
+	procd_set_param respawn
+	procd_close_instance
 }
 
 reload_service() {
-    restart_service
+	# Triggered by procd_add_reload_trigger when /etc/config/portal changes:
+	# re-bake the page, then restart so a changed port or title takes effect.
+	generate_links
+	restart_service
 }
 
 service_triggers() {
-    procd_add_reload_trigger "portal"
+	procd_add_reload_trigger "portal"
 }

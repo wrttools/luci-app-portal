@@ -1,0 +1,30 @@
+{
+	"luci-app-portal": {
+		"description": "Grant access to the Portal configuration",
+		"read": {
+			"file": {
+				"/etc/portal/www": [ "list" ],
+				"/etc/portal/www/*": [ "list", "read" ],
+				"/etc/portal/www/bg": [ "list" ],
+				"/etc/portal/www/bg/*": [ "list", "read" ],
+				"/etc/portal/www/icons": [ "list" ],
+				"/etc/portal/www/icons/*": [ "list", "read" ]
+			},
+			"ubus": {
+				"luci.portal": [ "scan" ]
+			},
+			"uci": [ "portal" ]
+		},
+		"write": {
+			"file": {
+				"/etc/portal/www/*": [ "write" ],
+				"/etc/portal/www/bg/*": [ "write" ],
+				"/etc/portal/www/icons/*": [ "write" ]
+			},
+			"ubus": {
+				"luci.portal": [ "generate" ]
+			},
+			"uci": [ "portal" ]
+		}
+	}
+}

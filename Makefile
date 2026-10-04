@@ -1,63 +1,73 @@
+#
+# Copyright (C) 2026 cocolight
+#
+# This is free software, licensed under the GNU General Public License v2.
+# See /LICENSE for more information.
+#
+
 include $(TOPDIR)/rules.mk
-include $(INCLUDE_DIR)/package.mk
 
-PKG_NAME:=luci-app-portal
-PKG_VERSION:=1.0
+PKG_VERSION:=2.0.0
 PKG_RELEASE:=1
-PKG_ARCH:=all
 
-define Package/luci-app-portal
-  SECTION:=luci
-  CATEGORY:=LuCI
-  SUBMENU:=3. Applications
-  TITLE:=Pure HTML navigation portal (custom port)
-  PKGARCH:=all
-  DEPENDS:=+uhttpd
-endef
+PKG_MAINTAINER:=cocolight
+PKG_LICENSE:=GPL-2.0-only
+PKG_LICENSE_FILES:=LICENSE
 
-define Package/luci-app-portal/description
-  Static HTML portal/dashboard served on a user-configurable port by its own
-  uhttpd instance. Bookmarks, icons and background persist via uci.
+LUCI_TITLE:=Portal - static HTML dashboard on a dedicated port
+LUCI_DESCRIPTION:=Serves a static HTML navigation portal on a configurable \
+	port using its own uhttpd instance. Bookmarks, icons and the background \
+	are managed through LuCI and persisted in uci.
+LUCI_DEPENDS:=+luci-base +uhttpd +ucode +ucode-mod-fs +ucode-mod-uci +rpcd-mod-ucode
+LUCI_PKGARCH:=all
+LUCI_URL:=https://github.com/wrttools/luci-app-portal
+
+# package.mk looks up PKG_LICENSE_FILES inside PKG_BUILD_DIR, while luci.mk
+# only stages luasrc/ucode/htdocs/root/src there - copy the license ourselves.
+define Build/Prepare/luci-app-portal
+	$(INSTALL_DIR) $(PKG_BUILD_DIR)
+	$(CP) ./LICENSE $(PKG_BUILD_DIR)/LICENSE
 endef
 
 define Package/luci-app-portal/conffiles
 /etc/config/portal
 endef
 
-define Package/luci-app-portal/install
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
-	$(CP) ./luasrc/controller/portal.lua $(1)/usr/lib/lua/luci/controller/portal.lua
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci
-	$(CP) ./luasrc/portal.lua $(1)/usr/lib/lua/luci/portal.lua
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/portal
-	$(CP) ./luasrc/model/cbi/portal/settings.lua $(1)/usr/lib/lua/luci/model/cbi/portal/settings.lua
-	$(INSTALL_DIR) $(1)/usr/share/portal/www
-	$(CP) ./root/usr/share/portal/www/* $(1)/usr/share/portal/www/
-	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./root/etc/init.d/portal $(1)/etc/init.d/portal
-	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_CONF) ./root/etc/config/portal $(1)/etc/config/portal
-endef
-
 define Package/luci-app-portal/postinst
 #!/bin/sh
-[ -z "$$IPKG_INSTROOT" ] || exit 0
+# $${IPKG_INSTROOT} is set by opkg, $${PKG_INSTROOT} by apk-tools.
+[ -z "$${IPKG_INSTROOT}$${PKG_INSTROOT}" ] || exit 0
+
 mkdir -p /etc/portal/www/icons /etc/portal/www/bg
-[ -f /etc/portal/www/index.html ] || cp -r /usr/share/portal/www/. /etc/portal/www/
-lua -e "require('luci.portal').generate()"
+[ -f /etc/portal/www/index.html ] || cp -r /usr/share/portal/www/. /etc/portal/www/ 2>/dev/null
+
+# Let rpcd pick up the new ucode plugin, then bake the initial links.json.
+/etc/init.d/rpcd reload 2>/dev/null
+ucode /usr/share/rpcd/ucode/portal.uc --cli generate >/dev/null 2>&1
+
 /etc/init.d/portal enable 2>/dev/null
 /etc/init.d/portal start 2>/dev/null
+
+rm -f /tmp/luci-indexcache.*
+rm -rf /tmp/luci-modulecache/
+
 exit 0
 endef
 
 define Package/luci-app-portal/prerm
 #!/bin/sh
-[ -z "$$IPKG_INSTROOT" ] || exit 0
+[ -z "$${IPKG_INSTROOT}$${PKG_INSTROOT}" ] || exit 0
+
 /etc/init.d/portal stop 2>/dev/null
 /etc/init.d/portal disable 2>/dev/null
 rm -rf /etc/portal
-rm -f /etc/config/portal
+
+# /etc/config/portal is a conffile and its removal is left to the package
+# manager, so that a modified configuration survives a reinstall.
+
 exit 0
 endef
 
-$(eval $(call BuildPackage,luci-app-portal))
+include $(TOPDIR)/feeds/luci/luci.mk
+
+# call BuildPackage - OpenWrt buildroot signature

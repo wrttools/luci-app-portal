@@ -1,0 +1,24 @@
+{
+	"admin/services/portal": {
+		"title": "Portal",
+		"order": 60,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-portal" ]
+		}
+	},
+
+	"admin/services/portal/settings": {
+		"title": "Settings",
+		"order": 1,
+		"action": {
+			"type": "view",
+			"path": "portal/settings"
+		},
+		"depends": {
+			"acl": [ "luci-app-portal" ]
+		}
+	}
+}
