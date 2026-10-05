@@ -15,8 +15,27 @@ prepare_www() {
 # Re-bake links.json from uci. The generator is the `luci.portal` ubus object
 # provided by the rpcd plugin, so there is exactly one loader of that script
 # and no second code path to keep in sync.
+#
+# The outcome is reported rather than discarded. Sending it to /dev/null hid
+# every way this can fail - the object not being registered yet, a ucode
+# exception, a denied call - and the only symptom was a portal page with no
+# bookmarks on it. A failure here is not fatal: the daemon still has to start,
+# because a portal serving the previous links.json is more useful than no
+# portal at all.
 generate_links() {
-	ubus call luci.portal generate >/dev/null 2>&1
+	local out rc
+
+	out=$(ubus call luci.portal generate 2>&1)
+	rc=$?
+
+	# A failed method is a normal reply, { "ok": false, ... }, so the exit
+	# status alone is not enough - the payload has to be read too.
+	if [ "$rc" -ne 0 ] || ! printf '%s' "$out" | grep -q '"ok"[[:space:]]*:[[:space:]]*true'; then
+		logger -t portal "links.json not regenerated (rc=$rc): $out"
+		return 1
+	fi
+
+	return 0
 }
 
 start_service() {

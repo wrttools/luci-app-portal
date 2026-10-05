@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_VERSION:=2.0.0
-PKG_RELEASE:=7
+PKG_RELEASE:=8
 
 # luci.mk derives PKG_PO_VERSION from git and, without a git checkout, from the
 # newest file mtime in the package directory. That changes on every rebuild and
@@ -54,7 +54,12 @@ mkdir -p /etc/portal/www/icons /etc/portal/www/bg
 ubus list 2>/dev/null | grep -q '^luci\.portal$$' || /etc/init.d/rpcd restart 2>/dev/null
 sleep 1
 
-ubus call luci.portal generate >/dev/null 2>&1
+# Reported instead of discarded: a silent failure here leaves the portal
+# with no bookmarks on it and nothing in the log to explain why.
+out=$$(ubus call luci.portal generate 2>&1); \
+printf '%s' "$$out" | grep -q '"ok"[[:space:]]*:[[:space:]]*true' \
+	|| { echo "luci-app-portal: links.json not generated: $$out" >&2; \
+	     logger -t portal "links.json not generated during install: $$out"; }
 
 /etc/init.d/portal enable 2>/dev/null
 /etc/init.d/portal start 2>/dev/null
