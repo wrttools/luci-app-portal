@@ -53,10 +53,10 @@ the portal page itself never needs a backend.
 
 ```sh
 # OpenWrt 25.12 and newer (apk)
-apk add --allow-untrusted ./luci-app-portal-2.0.0-r11.apk
+apk add --allow-untrusted ./luci-app-portal-2.0.0-r12.apk
 
 # OpenWrt 24.10 and older (opkg), built from the matching SDK
-opkg install ./luci-app-portal_2.0.0-r11_all.ipk
+opkg install ./luci-app-portal_2.0.0-r12_all.ipk
 ```
 
 Then open **Services → Portal** in LuCI, or go straight to
