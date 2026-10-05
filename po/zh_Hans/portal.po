@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: luci-app-portal\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-05 11:40+0800\n"
-"PO-Revision-Date: 2026-10-05 09:45+0800\n"
+"PO-Revision-Date: 2026-10-05 21:15+0800\n"
 "Last-Translator: cocolight\n"
 "Language-Team: Chinese (Simplified)\n"
 "Language: zh_Hans\n"
@@ -192,6 +192,57 @@ msgstr "已启用 %d 个书签，按“保存并应用”以保留此更改。"
 #: htdocs/luci-static/resources/view/portal/bookmarks.js:116
 msgid "Select all"
 msgstr "全选"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:236
+msgid "Save"
+msgstr "保存"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:227
+msgid "Save this bookmark"
+msgstr "保存这一行"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:234
+msgid "Bookmark saved."
+msgstr "已保存该书签。"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:166
+#, javascript-format
+msgid "Disabled %d bookmark(s). Press \"Save & Apply\" to keep the change."
+msgstr "已停用 %d 个书签，按“保存并应用”以保留此更改。"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:295
+msgid "Delete disabled bookmarks"
+msgstr "删除禁用书签"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:296
+msgid "Clear all bookmarks"
+msgstr "清空所有书签"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:266
+msgid "There is no disabled bookmark to delete."
+msgstr "没有已禁用的书签可删除。"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:267
+msgid "There is no bookmark to delete."
+msgstr "没有书签可删除。"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:273
+#, javascript-format
+msgid ""
+"This removes %d disabled bookmark(s) from the configuration. It cannot be "
+"undone."
+msgstr "将从配置中删除 %d 个已禁用的书签，此操作不可撤销。"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:274
+#, javascript-format
+msgid ""
+"This removes all %d bookmark(s) from the configuration. It cannot be undone."
+msgstr "将从配置中删除全部 %d 个书签，此操作不可撤销。"
+
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:279
+#, javascript-format
+msgid "Deleted %d bookmark(s)."
+msgstr "已删除 %d 个书签。"
 
 #: htdocs/luci-static/resources/view/portal/assets.js:116
 msgid "preview unavailable"
