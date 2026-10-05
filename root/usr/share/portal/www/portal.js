@@ -1,5 +1,16 @@
 fetch('links.json')
-  .then(function (r) { return r.json(); })
+  .then(function (r) {
+    /*
+     * A 404 is not a fetch error - fetch() resolves it and r.json() then
+     * chokes on the HTML error page the server answered with, so both end
+     * up in the same catch(). Reporting the status here is what tells an
+     * unwritten links.json ("HTTP 404") apart from a malformed one.
+     */
+    if (!r.ok)
+      throw new Error('HTTP ' + r.status);
+
+    return r.json();
+  })
   .then(function (d) {
     if (d.title) {
       document.getElementById('title').textContent = d.title;
@@ -65,6 +76,7 @@ fetch('links.json')
       grid.appendChild(a);
     });
   })
-  .catch(function () {
-    document.getElementById('grid').textContent = 'Failed to load links.json';
+  .catch(function (err) {
+    document.getElementById('grid').textContent =
+      'Failed to load links.json: ' + ((err && err.message) || err);
   });

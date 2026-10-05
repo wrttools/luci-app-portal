@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_VERSION:=2.0.0
-PKG_RELEASE:=7
+PKG_RELEASE:=11
 
 # luci.mk derives PKG_PO_VERSION from git and, without a git checkout, from the
 # newest file mtime in the package directory. That changes on every rebuild and
@@ -29,9 +29,15 @@ LUCI_URL:=https://github.com/wrttools/luci-app-portal
 
 # package.mk looks up PKG_LICENSE_FILES inside PKG_BUILD_DIR, while luci.mk
 # only stages luasrc/ucode/htdocs/root/src there - copy the license ourselves.
+# luci.mk copies ./root into $(PKG_BUILD_DIR) right before this hook runs and
+# installs it with `cp -pR`, i.e. with whatever mode the file has in the
+# working tree. The init script has to be executable, and a checkout that lost
+# the bit (Windows tooling, a copy, core.filemode=false hiding the change)
+# would otherwise ship a package whose service can never start.
 define Build/Prepare/luci-app-portal
 	$(INSTALL_DIR) $(PKG_BUILD_DIR)
 	$(CP) ./LICENSE $(PKG_BUILD_DIR)/LICENSE
+	chmod 0755 $(PKG_BUILD_DIR)/root/etc/init.d/portal
 endef
 
 define Package/luci-app-portal/conffiles
@@ -54,10 +60,27 @@ mkdir -p /etc/portal/www/icons /etc/portal/www/bg
 ubus list 2>/dev/null | grep -q '^luci\.portal$$' || /etc/init.d/rpcd restart 2>/dev/null
 sleep 1
 
-ubus call luci.portal generate >/dev/null 2>&1
+# Reported instead of discarded: a silent failure here leaves the portal
+# with no bookmarks on it and nothing in the log to explain why.
+out=$$(ubus call luci.portal generate 2>&1); \
+printf '%s' "$$out" | grep -q '"ok"[[:space:]]*:[[:space:]]*true' \
+	|| { echo "luci-app-portal: links.json not generated: $$out" >&2; \
+	     logger -t portal "links.json not generated during install: $$out"; }
 
-/etc/init.d/portal enable 2>/dev/null
-/etc/init.d/portal start 2>/dev/null
+# root/ is copied verbatim by the build system, so the init script carries
+# whatever mode the working tree had. A non-executable script fails both calls
+# below and the portal never comes up, so force the mode here as well - that
+# also repairs devices updated from a package built with a 0644 script.
+chmod 0755 /etc/init.d/portal 2>/dev/null
+
+if ! /etc/init.d/portal enable; then \
+	echo "luci-app-portal: failed to enable the portal service" >&2; \
+	logger -t portal "failed to enable the portal service"; \
+fi
+if ! /etc/init.d/portal start; then \
+	echo "luci-app-portal: failed to start the portal service" >&2; \
+	logger -t portal "failed to start the portal service"; \
+fi
 
 rm -f /tmp/luci-indexcache.*
 rm -rf /tmp/luci-modulecache/
@@ -69,8 +92,22 @@ define Package/luci-app-portal/prerm
 #!/bin/sh
 [ -z "$${IPKG_INSTROOT}$${PKG_INSTROOT}" ] || exit 0
 
-/etc/init.d/portal stop 2>/dev/null
-/etc/init.d/portal disable 2>/dev/null
+# Same guard as in postinst: a package built before the mode was fixed ships a
+# 0644 init script. Here the consequence is worse than at install time - the
+# procd instance is declared with `respawn`, so a stop that never runs leaves
+# uhttpd holding the port and restarting into a /etc/portal that the line below
+# is about to delete.
+chmod 0755 /etc/init.d/portal 2>/dev/null
+
+if ! /etc/init.d/portal stop; then \
+	echo "luci-app-portal: failed to stop the portal service" >&2; \
+	logger -t portal "failed to stop the portal service"; \
+fi
+if ! /etc/init.d/portal disable; then \
+	echo "luci-app-portal: failed to disable the portal service" >&2; \
+	logger -t portal "failed to disable the portal service"; \
+fi
+
 rm -rf /etc/portal
 
 # /etc/config/portal is a conffile and its removal is left to the package

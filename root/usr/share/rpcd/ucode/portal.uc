@@ -222,14 +222,29 @@ function ip4_to_proc_hex(ip) {
 	return sprintf('%02X%02X%02X%02X', octets[3], octets[2], octets[1], octets[0]);
 }
 
+/*
+ * The LAN address the portal can be reached at.
+ *
+ * Two things about `ipaddr` are easy to get wrong and both were: it is written
+ * in CIDR form on most configurations ("192.168.1.1/24"), which has to be
+ * stripped before it is put into a URL, and some ucode builds hand a list value
+ * back as an array, which a plain type check then rejects - the address came
+ * back empty and the status page showed "unknown" for a portal that was up.
+ */
 function lan_ip() {
 	const uci = cursor();
 
 	uci.load('network');
 
-	const ip = uci.get('network', 'lan', 'ipaddr');
+	let ip = uci.get('network', 'lan', 'ipaddr');
 
-	return type(ip) == 'string' ? ip : '';
+	if (type(ip) == 'array')
+		ip = ip[0];
+
+	if (type(ip) != 'string')
+		return '';
+
+	return split(ip, '/')[0];
 }
 
 /* ----------------------------------------------------------- port scanning -- */
@@ -456,6 +471,21 @@ function generate() {
 
 	fd.write(sprintf('%J', data));
 	fd.close();
+
+	/*
+	 * The mode passed to open() is masked by the process umask, and rpcd
+	 * inherits umask 077 from procd - so the file came out 0600 instead of
+	 * 0644, and only the owner could read it. uhttpd runs as root today and
+	 * reads it anyway, but the portal page then depends on that: as soon as
+	 * the server is started as a non-root user, or the file is fetched by
+	 * anything else, links.json answers 403 and the page silently shows no
+	 * bookmarks at all.
+	 *
+	 * chmod() is not subject to the umask, so this is what actually pins the
+	 * mode - the same thing the upload paths below do for the files they
+	 * store.
+	 */
+	chmod(WWW + '/links.json', 0o644);
 
 	return { ok: true, title: data.title, links: length(data.links) };
 }
