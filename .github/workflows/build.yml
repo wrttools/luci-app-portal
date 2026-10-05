@@ -1,0 +1,41 @@
+name: build
+
+# luci-app-portal 的 CI 门禁。
+#
+# 本项目是纯脚本包（LuCI JS 视图 + ucode + procd shell），没有可运行的单元测试，
+# 因此门禁落在「语法级检查 + 交叉引用一致性」上：JS 能否解析、JSON 是否合法、
+# shell 是否通过 shellcheck、po 是否能编译、ubus 方法是否都在 ACL 白名单里、
+# 行尾是否全 LF、模板占位符是否有残留。
+#
+# 真正的检查逻辑在 scripts/check.sh —— 本文件只负责准备环境并调用它，
+# 这样本地与 CI 不可能漂移。**加检查请改 scripts/check.sh，不要在这里加。**
+#
+# job 名 `test` 被分支保护的 required status checks 引用，改名前先改保护设置。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# runner 镜像显式钉版本，不跟随 ubuntu-latest：隐式跟随会在 GitHub 切换镜像时
+# 让 CI 行为突变（例如系统依赖的包名变化）。升级镜像前请先在分支上验证依赖。
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck gettext
+
+      - name: Check
+        run: sh scripts/check.sh
+
+      # 若本项目将来引入真实测试，加在下面这一步，且不得改成 `|| true`：
+      # - name: Test
+      #   run: <真实测试命令>
