@@ -78,6 +78,117 @@ function save_row(section, section_id) {
 
 const BookmarkTable = form.TableSection.extend({
 	/*
+	 * The "Enabled" column header is where the select-all box belongs: it sits
+	 * directly above the flags it drives, instead of floating above the table
+	 * (form.Button inside a TableSection would occupy a column of every row).
+	 *
+	 * The flags are driven through their own widget instances rather than by
+	 * poking at the DOM. Map.parse() reads the value back with
+	 * CBIFlagValue.formvalue(), which asks the ui.Checkbox whether it is checked,
+	 * so setting it here is exactly what a user click does - and no synthetic
+	 * change event is needed for the value to be picked up.
+	 *
+	 * Ticking the box only stages the change, like every other input on the page:
+	 * it is the footer "Save & Apply" (or the per-row Save) that commits it.
+	 */
+	renderHeaderRows(has_action) {
+		const node = this.super('renderHeaderRows', [ has_action ]);
+		const flag = this.flag;
+
+		if (flag == null)
+			return node;
+
+		const row = node.querySelector('tr.cbi-section-table-titles:not(.cbi-section-table-filter)');
+		const th = (row != null) ? row.children[this.children.indexOf(flag)] : null;
+
+		if (th == null)
+			return node;
+
+		this.select_all = E('input', {
+			type: 'checkbox',
+			class: 'cbi-input-checkbox',
+			title: _('Select all'),
+			style: 'margin:0 0 0 .4em;vertical-align:middle',
+			change: function(ev) { this.toggle_all(ev.target.checked); }.bind(this)
+		});
+
+		th.appendChild(this.select_all);
+
+		return node;
+	},
+
+	toggle_all(on) {
+		const flag = this.flag;
+		let count = 0;
+
+		this.cfgsections().forEach(function(sid) {
+			const elem = flag.getUIElement(sid);
+
+			if (elem == null)
+				return;
+
+			elem.setValue(on ? flag.enabled : flag.disabled);
+			count++;
+		});
+
+		this.sync_select_all();
+
+		if (count > 0)
+			ui.addNotification(null, E('p', {}, on
+				? _('Enabled %d bookmark(s). Press "Save & Apply" to keep the change.').format(count)
+				: _('Disabled %d bookmark(s). Press "Save & Apply" to keep the change.').format(count)), 'info');
+	},
+
+	/*
+	 * Keep the header box honest: a "select all" that stays ticked while a single
+	 * row is unticked is a lie. The state is recomputed from the rendered
+	 * checkboxes, and shown as an indeterminate box while only some rows are on.
+	 */
+	sync_select_all() {
+		const box = this.select_all;
+
+		if (box == null || this.section_node == null)
+			return;
+
+		const boxes = this.section_node.querySelectorAll('tbody input[type="checkbox"]');
+		let on = 0;
+
+		boxes.forEach(function(elem) { if (elem.checked) on++; });
+
+		box.checked = (boxes.length > 0 && on === boxes.length);
+		box.indeterminate = (on > 0 && on < boxes.length);
+	},
+
+	render() {
+		const self = this;
+
+		/*
+		 * The empty array is not decoration: LuCI's super(key) with a single
+		 * argument returns the parent method itself, it only calls it when
+		 * arguments are supplied (super('key', args)). Omitting it hands the
+		 * function to the promise chain instead of the rendered node.
+		 */
+		return Promise.resolve(this.super('render', [])).then(function(node) {
+			self.section_node = node;
+
+			/*
+			 * One delegated listener instead of one per row: rows are added and
+			 * removed at runtime (Add, per-row Delete), so per-row listeners would
+			 * have to be re-attached over and over. Change events bubble, and the
+			 * header box fires its own change event, which is filtered out here.
+			 */
+			node.addEventListener('change', function(ev) {
+				if (ev.target !== self.select_all)
+					self.sync_select_all();
+			});
+
+			self.sync_select_all();
+
+			return node;
+		});
+	},
+
+	/*
 	 * The per-row "Save" button, placed left of LuCI's "Delete". It commits this
 	 * row only - the other rows, including a half filled one that has not been
 	 * saved yet, are left alone.
@@ -144,7 +255,12 @@ return view.extend({
 			o.default = '1';
 			o.rmempty = false;
 
-			const enabled = o;
+			/*
+			 * The select-all box in the header drives the per-row checkboxes; the
+			 * section is not rendered yet, so handing the option over here is
+			 * enough.
+			 */
+			s.flag = o;
 
 			o = s.option(form.Value, 'name', _('Name'));
 			o.rmempty = false;
@@ -171,56 +287,7 @@ return view.extend({
 				o.value(ICON_DIR + '/' + name, name);
 			});
 
-			/*
-			 * Tick every "Enabled" box at once.
-			 *
-			 * form.js has no select-all of its own - grepping it for
-			 * selectAll/toggleAll/checkall finds nothing, and none of the views
-			 * built on form.Flag carry one either. form.Button is no good here
-			 * either: inside a TableSection it occupies a column of every row.
-			 *
-			 * The flag is driven through its own widget instance rather than by
-			 * poking at the DOM. Map.parse() reads the value back with
-			 * CBIFlagValue.formvalue(), which asks the ui.Checkbox whether it is
-			 * checked, so setting it here is exactly what a user click does - and
-			 * no synthetic change event is needed for the value to be picked up.
-			 */
-			const selectAll = E('button', {
-				class: 'btn cbi-button cbi-button-action',
-				click: function(ev) {
-					ev.preventDefault();
-
-					const sids = s.cfgsections();
-					let count = 0;
-
-					for (let i = 0; i < sids.length; i++) {
-						const elem = enabled.getUIElement(sids[i]);
-
-						if (elem == null)
-							continue;
-
-						elem.setValue(enabled.enabled);
-						count++;
-					}
-
-					ui.addNotification(null, E('p', {},
-						_('Enabled %d bookmark(s). Press "Save & Apply" to keep the change.')
-							.format(count)), 'info');
-				}
-			}, _('Select all'));
-
-			return m.render().then(function(mapNode) {
-				/*
-				 * form.Button renders a full table cell, so the button is placed
-				 * above the map instead - same effect, no empty column.
-				 */
-				const wrapper = E('div', {}, [
-					E('div', { style: 'margin-bottom:.5em' }, selectAll),
-					mapNode
-				]);
-
-				return wrapper;
-			});
+			return m.render();
 		}.bind(this));
 	}
 });
