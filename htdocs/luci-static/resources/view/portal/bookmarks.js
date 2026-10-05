@@ -74,6 +74,52 @@ function save_row(section, section_id) {
 	return Promise.all(tasks).then(commit);
 }
 
+/*
+ * Drop the given sections and commit. Both bulk deletions use this, after asking
+ * for confirmation.
+ */
+function drop_sections(sids) {
+	sids.forEach(function(sid) {
+		uci.remove('portal', sid);
+	});
+
+	return commit();
+}
+
+function reload_soon() {
+	/* The notifications are added to the page itself, so let them be read. */
+	window.setTimeout(function() { window.location.reload(); }, 1500);
+}
+
+/*
+ * Second confirmation for a destructive action.
+ *
+ * Both bulk deletions rewrite the whole table, so a misclick is expensive. The
+ * message spells out how many rows are about to be lost, and the count comes from
+ * the widgets rather than from uci: a row that is unticked but not saved yet is
+ * still one the user sees as disabled, and the dialog must not promise less than
+ * the action does.
+ */
+function confirm_removal(title, message, on_confirm) {
+	ui.showModal(title, [
+		E('p', {}, message),
+		E('div', { class: 'right' }, [
+			E('button', {
+				class: 'btn',
+				click: function() { ui.hideModal(); }
+			}, _('Cancel')),
+			' ',
+			E('button', {
+				class: 'btn cbi-button cbi-button-negative',
+				click: function() {
+					ui.hideModal();
+					return on_confirm();
+				}
+			}, _('Delete'))
+		])
+	]);
+}
+
 /* ---------------------------------------------------------------- the table -- */
 
 const BookmarkTable = form.TableSection.extend({
@@ -106,7 +152,6 @@ const BookmarkTable = form.TableSection.extend({
 
 		this.select_all = E('input', {
 			type: 'checkbox',
-			class: 'cbi-input-checkbox',
 			title: _('Select all'),
 			style: 'margin:0 0 0 .4em;vertical-align:middle',
 			change: function(ev) { this.toggle_all(ev.target.checked); }.bind(this)
@@ -217,6 +262,64 @@ const BookmarkTable = form.TableSection.extend({
 		remove.parentNode.insertBefore(save, remove);
 
 		return node;
+	},
+
+	/*
+	 * The two bulk deletions, to the right of "Add". Both are irreversible, so
+	 * both are painted as negative buttons and both ask for confirmation first.
+	 * `only_disabled` selects the target set: the rows whose "Enabled" box is
+	 * currently unticked, or every row.
+	 */
+	bulk_delete(label, only_disabled) {
+		const self = this;
+
+		return E('button', {
+			class: 'btn cbi-button cbi-button-negative',
+			disabled: this.map.readonly || null,
+			click: function(ev) {
+				ev.preventDefault();
+
+				const flag = self.flag;
+
+				const sids = self.cfgsections().filter(function(sid) {
+					return !only_disabled || (flag.formvalue(sid) !== flag.enabled);
+				});
+
+				if (!sids.length) {
+					ui.addNotification(null, E('p', {}, only_disabled
+						? _('There is no disabled bookmark to delete.')
+						: _('There is no bookmark to delete.')), 'info');
+
+					return;
+				}
+
+				confirm_removal(label, only_disabled
+					? _('This removes %d disabled bookmark(s) from the configuration. It cannot be undone.').format(sids.length)
+					: _('This removes all %d bookmark(s) from the configuration. It cannot be undone.').format(sids.length),
+					function() {
+						return common.run_rpc(function() {
+							return drop_sections(sids).then(function() { return { removed: sids.length }; });
+						}, function(res) {
+							return _('Deleted %d bookmark(s).').format(res.removed);
+						}).then(function(res) {
+							if (res != null)
+								reload_soon();
+						});
+					});
+			}
+		}, [ label ]);
+	},
+
+	renderSectionAdd(extra_class) {
+		const node = this.super('renderSectionAdd', [ extra_class ]);
+
+		if (!this.addremove || this.flag == null)
+			return node;
+
+		node.appendChild(this.bulk_delete(_('Delete disabled bookmarks'), true));
+		node.appendChild(this.bulk_delete(_('Clear all bookmarks'), false));
+
+		return node;
 	}
 });
 
@@ -256,9 +359,9 @@ return view.extend({
 			o.rmempty = false;
 
 			/*
-			 * The select-all box in the header drives the per-row checkboxes; the
-			 * section is not rendered yet, so handing the option over here is
-			 * enough.
+			 * The select-all box in the header and the bulk deletions need the
+			 * flag option to read and drive the per-row checkboxes; the section is
+			 * not rendered yet, so handing it over here is enough.
 			 */
 			s.flag = o;
 
