@@ -14,6 +14,7 @@
 | 4 | 素材库上传 / 重命名 / 删除 / 设为背景 | in-progress | 设备上四个操作后文件确实变动，且**失败时必须弹错误提示** —— 当前不满足，见 [已知缺陷](#已知缺陷) | v2.0.0-r7 |
 | 5 | 协作规范（AGENTS / docs / ADR / CI 门禁） | done | `sh scripts/check.sh` 输出 `ALL CHECKS PASSED`；`.github/workflows/build.yml` 的 `test` job 为绿 | 本次改造 |
 | 6 | 回归测试体系（vitest / uci 集成测试） | planned | `sh scripts/check.sh` 之外存在 `sh scripts/test.sh` 且 CI 调用它；至少覆盖 `run_rpc()` 失败传播 | 依赖 CI 基础设施 |
+| 7 | 书签页表头排版：把「已启用」文字移到描述行 | planned | 设备上打开书签页，表头第二行（描述行）`data-widget="CBI.FlagValue"` 那一格里出现「启用」字样，且该行「图标」列仍是「emoji 或图片的绝对 URL。」—— 两段文字同一行 | 用户 2026-10-05 提出，纯排版、不动数据；书签页进入 r16 后再做 |
 
 ## 已知缺陷
 
