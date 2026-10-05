@@ -51,10 +51,10 @@ the portal page itself never needs a backend.
 
 ```sh
 # OpenWrt 25.12 and newer (apk)
-apk add --allow-untrusted ./luci-app-portal-2.0.0-r10.apk
+apk add --allow-untrusted ./luci-app-portal-2.0.0-r11.apk
 
 # OpenWrt 24.10 and older (opkg), built from the matching SDK
-opkg install ./luci-app-portal_2.0.0-r10_all.ipk
+opkg install ./luci-app-portal_2.0.0-r11_all.ipk
 ```
 
 Then open **Services → Portal** in LuCI, or go straight to
@@ -248,7 +248,7 @@ GPL-2.0-only. See [LICENSE](LICENSE).
 **安装**：
 
 ```sh
-apk add --allow-untrusted ./luci-app-portal-2.0.0-r10.apk
+apk add --allow-untrusted ./luci-app-portal-2.0.0-r11.apk
 ```
 
 然后进 LuCI 的 **服务 → Portal**，或直接访问 `http://<路由器>:8180/`。
