@@ -8,7 +8,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_VERSION:=2.0.0
-PKG_RELEASE:=3
+PKG_RELEASE:=7
 
 # luci.mk derives PKG_PO_VERSION from git and, without a git checkout, from the
 # newest file mtime in the package directory. That changes on every rebuild and
@@ -47,8 +47,14 @@ mkdir -p /etc/portal/www/icons /etc/portal/www/bg
 [ -f /etc/portal/www/index.html ] || cp -r /usr/share/portal/www/. /etc/portal/www/ 2>/dev/null
 
 # Let rpcd pick up the new ucode plugin, then bake the initial links.json.
+# If the reload did not rescan the plugin directory the ubus object stays
+# missing and every luci.portal call fails with "Object not found", so fall back
+# to a full restart before generating.
 /etc/init.d/rpcd reload 2>/dev/null
-ucode /usr/share/rpcd/ucode/portal.uc --cli generate >/dev/null 2>&1
+ubus list 2>/dev/null | grep -q '^luci\.portal$$' || /etc/init.d/rpcd restart 2>/dev/null
+sleep 1
+
+ubus call luci.portal generate >/dev/null 2>&1
 
 /etc/init.d/portal enable 2>/dev/null
 /etc/init.d/portal start 2>/dev/null

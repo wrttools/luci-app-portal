@@ -9,7 +9,30 @@ fetch('links.json')
       if (/^#|^rgb/.test(d.background)) {
         document.body.style.background = d.background;
       } else {
-        document.body.style.backgroundImage = 'url("' + d.background + '")';
+        /*
+         * The path comes out of the backend rooted ("/bg/x.jpg"). Without the
+         * leading slash the browser would resolve it against the page's own
+         * path, which is not what the document root means.
+         */
+        var url = d.background.replace(/^([^\/])/, '/$1');
+
+        /*
+         * Replacing the background leaves the name untouched, so the browser
+         * would serve the cached copy and a plain reload would keep showing
+         * the old image. The version the backend reports (modification time
+         * plus size) makes the URL change whenever the file does.
+         */
+        if (d.background_v)
+          url += '?v=' + encodeURIComponent(d.background_v);
+
+        /*
+         * Only background-image is set. The stylesheet's background shorthand
+         * already provides the position, size and repeat the picture needs, and
+         * its dark background-color is deliberately left in place as a
+         * fallback: the page text is light, so a failed image load would
+         * otherwise leave white-on-white.
+         */
+        document.body.style.backgroundImage = 'url("' + url + '")';
       }
     }
     var grid = document.getElementById('grid');

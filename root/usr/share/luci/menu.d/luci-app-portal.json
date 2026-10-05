@@ -10,12 +10,36 @@
 		}
 	},
 
-	"admin/services/portal/settings": {
-		"title": "Settings",
+	"admin/services/portal/general": {
+		"title": "General",
 		"order": 1,
 		"action": {
 			"type": "view",
-			"path": "portal/settings"
+			"path": "portal/general"
+		},
+		"depends": {
+			"acl": [ "luci-app-portal" ]
+		}
+	},
+
+	"admin/services/portal/bookmarks": {
+		"title": "Bookmarks",
+		"order": 2,
+		"action": {
+			"type": "view",
+			"path": "portal/bookmarks"
+		},
+		"depends": {
+			"acl": [ "luci-app-portal" ]
+		}
+	},
+
+	"admin/services/portal/assets": {
+		"title": "Assets",
+		"order": 3,
+		"action": {
+			"type": "view",
+			"path": "portal/assets"
 		},
 		"depends": {
 			"acl": [ "luci-app-portal" ]

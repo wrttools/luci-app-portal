@@ -1,5 +1,7 @@
-# Portal: port/title/background of the dashboard served by /etc/init.d/portal
+# Portal: switch, port, title and background of the dashboard served by
+# /etc/init.d/portal. Set enabled to '0' to stop the portal daemon.
 config portal
+	option enabled '1'
 	option port '8180'
 	option title 'My Portal'
 	option background '#0e1116'

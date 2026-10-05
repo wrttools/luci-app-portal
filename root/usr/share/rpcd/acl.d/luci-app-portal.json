@@ -4,25 +4,25 @@
 		"read": {
 			"file": {
 				"/etc/portal/www": [ "list" ],
-				"/etc/portal/www/*": [ "list", "read" ],
+				"/etc/portal/www/*": [ "list" ],
 				"/etc/portal/www/bg": [ "list" ],
-				"/etc/portal/www/bg/*": [ "list", "read" ],
+				"/etc/portal/www/bg/*": [ "list" ],
 				"/etc/portal/www/icons": [ "list" ],
-				"/etc/portal/www/icons/*": [ "list", "read" ]
+				"/etc/portal/www/icons/*": [ "list" ]
 			},
 			"ubus": {
+				"file": [ "list" ],
 				"luci.portal": [ "scan", "status" ]
 			},
 			"uci": [ "portal" ]
 		},
 		"write": {
+			"cgi-io": [ "upload" ],
 			"file": {
-				"/etc/portal/www/*": [ "write" ],
-				"/etc/portal/www/bg/*": [ "write" ],
-				"/etc/portal/www/icons/*": [ "write" ]
+				"/tmp/portal_upload.tmp": [ "read", "write" ]
 			},
 			"ubus": {
-				"luci.portal": [ "generate" ]
+				"luci.portal": [ "generate", "upload", "rename", "remove" ]
 			},
 			"uci": [ "portal" ]
 		}

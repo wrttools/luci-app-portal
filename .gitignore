@@ -12,6 +12,8 @@
 *.o
 *.so
 *.a
+# ucode compiles to a binary beside the source when built by hand
+uc.out
 
 # --- Package output ---
 *.apk

@@ -7,22 +7,45 @@
 //
 // Loaded by rpcd-mod-ucode, this file provides the `luci.portal` ubus object:
 //
-//     luci.portal scan      -> { "lan_ip": "192.168.1.1", "ports": [ { "port": 80, "svc": "http" } ] }
+//     luci.portal scan      -> { "lan_ip": "192.168.1.1", "ports": [ { "port": 80, "svc": "http", "web": true } ] }
 //     luci.portal generate  -> { "ok": true, "title": "My Portal", "links": 2 }
 //     luci.portal status    -> { "ok": true, "running": true, "pid": 1234, "port": 8180, ... }
+//     luci.portal upload    -> { "ok": true, "name": "bg.jpg" }
+//     luci.portal rename    -> { "ok": true, "name": "new.jpg" }
+//     luci.portal remove    -> { "ok": true, "name": "old.jpg", "references": 2 }
 //
-// The very same file doubles as a command line tool, which is what
-// /etc/init.d/portal and the package post-install script invoke:
+// Call it over ubus, from /etc/init.d/portal, the package post-install script or
+// a shell:
 //
-//     ucode /usr/share/rpcd/ucode/portal.uc --cli generate
+//     ubus call luci.portal generate
+//     ubus call luci.portal status
+//
+// It is deliberately a plugin AND NOTHING ELSE. rpcd does not set ARGV when it
+// loads a script (uc_vm_execute() passes only the program), so a file that also
+// tried to be a command line tool would touch an undefined ARGV at load time,
+// rpcd would skip the whole script on the resulting error and the object would
+// never register.
 
 'use strict';
 
 import { cursor } from 'uci';
-import { glob, mkdir, open, readfile, stat } from 'fs';
+import { chmod, glob, mkdir, open, readfile, rename, stat, unlink } from 'fs';
 
 const CONFIG = 'portal';
 const WWW = '/etc/portal/www';
+const ICON_DIR = WWW + '/icons';
+const BG_DIR = WWW + '/bg';
+
+/*
+ * Where the browser drops a cgi-upload before the backend moves it into place.
+ * The final name is decided server side, so this is the only path a request can
+ * ever write to.
+ */
+const TMP_UPLOAD = '/tmp/portal_upload.tmp';
+
+/* Matches the limit the Assets page enforces, so a hand crafted request is
+ * rejected the same way the UI rejects one. */
+const MAX_UPLOAD = 2 * 1024 * 1024;
 
 /* Well known router services, kept in sync with the previous release.
  * Note that ucode object keys must be quoted - bare numbers are a syntax error. */
@@ -32,6 +55,32 @@ const SVC = {
 	'8080': 'http-alt', '8081': 'http-alt', '8123': 'http', '8181': 'http',
 	'8384': 'syncthing', '8443': 'https-alt', '8888': 'http', '9000': 'http',
 	'9090': 'cockpit', '6888': 'http', '1194': 'openvpn', '51820': 'wireguard'
+};
+
+/* Services a browser cannot open. These are dropped from the scan result
+ * outright - a bookmark to port 22 or 53 is never what the user meant.
+ * Note that ucode object keys must be quoted, bare numbers are a syntax error. */
+const NOT_WEB = {
+	'ssh': true, 'dns': true, 'syncthing': true, 'openvpn': true, 'wireguard': true
+};
+
+/*
+ * Services that do answer HTTP. Anything in neither table is reported as
+ * 'unknown' rather than guessed at: a port number carries no protocol
+ * semantics, so 7890 may be a proxy or an arbitrary TCP service, and 1053 is
+ * mDNS rather than a web server. The UI turns those into an explicit
+ * "add them anyway" prompt instead of either dropping or guessing.
+ */
+const IS_WEB = {
+	'http': true, 'https': true, 'http-alt': true, 'https-alt': true, 'cockpit': true
+};
+
+/* Ports that are certainly not web servers even though /etc/services has no
+ * entry for them. Without this an mDNS responder on 5353 shows up as a
+ * bookmark target. */
+const NOT_WEB_PORTS = {
+	'67': true, '68': true, '123': true, '137': true, '138': true,
+	'139': true, '1900': true, '5353': true
 };
 
 /* Addresses whose listeners are reachable from the LAN. */
@@ -62,6 +111,22 @@ function first_section(uci, type) {
 	return options;
 }
 
+/*
+ * The name of the first section of the given type, needed to address it in
+ * uci.set() / uci.delete(). first_section() cannot be used for that because it
+ * deliberately filters the `.name` key out of what it returns.
+ */
+function first_section_name(uci, type) {
+	let name = null;
+
+	uci.foreach(CONFIG, type, (section) => {
+		name = section['.name'];
+		return false;
+	});
+
+	return name;
+}
+
 function ensure_dir(path) {
 	try {
 		mkdir(path, 0o755);
@@ -73,21 +138,63 @@ function ensure_dir(path) {
 }
 
 /*
- * form.FileUpload stores absolute paths below the document root, so strip the
- * prefix to obtain something the browser can request. A bare file name, as
- * written by the previous Lua release, is relative to `subdir`.
+ * Map a stored asset option onto a document-root relative URL.
+ *
+ * The result always starts with a slash: the page is served from the root of
+ * its own uhttpd instance, so a bare "bg/x.jpg" would be resolved against the
+ * page's own path and 404. Values arrive in three shapes - a bare name as
+ * written by the previous Lua release, an absolute path as written by the
+ * Assets page, and a leading-slash path if a hand edited config used one.
  */
 function asset_path(value, subdir) {
 	if (value == null || value == '')
 		return '';
 
 	if (index(value, WWW + '/') == 0)
-		return substr(value, length(WWW) + 1);
+		return '/' + substr(value, length(WWW) + 1);
 
 	if (index(value, '/') != 0)
-		return subdir + '/' + value;
+		return '/' + subdir + '/' + value;
 
 	return value;
+}
+
+/*
+ * The inverse: the on-disk path a stored option refers to, used to find the
+ * file again for renaming, deleting and versioning.
+ */
+function asset_file(value, subdir) {
+	if (value == null || value == '')
+		return null;
+
+	if (index(value, '/') == 0)
+		return (index(value, WWW + '/') == 0) ? value : null;
+
+	return WWW + '/' + subdir + '/' + value;
+}
+
+/*
+ * Asset names end up in a device path, so they are restricted to characters
+ * that cannot escape the directory. Rejecting is preferred over sanitising:
+ * silently rewriting a name the user typed is more surprising than refusing
+ * it, and it keeps the stored value and the file name identical.
+ *
+ * The class is spelled out because ucode matches with POSIX ERE, where \w is
+ * not a shorthand - it means the literal letter "w".
+ */
+function valid_name(name) {
+	return (type(name) == 'string' && name != '' && match(name, /^[A-Za-z0-9_.\-]+$/) != null);
+}
+
+/* Resolve the `dir` argument of an asset method to a real directory. */
+function asset_dir(dir) {
+	if (dir == 'icons')
+		return ICON_DIR;
+
+	if (dir == 'bg')
+		return BG_DIR;
+
+	return null;
 }
 
 /*
@@ -265,12 +372,18 @@ function port_is_listening(port) {
  * socket - the two can differ, for example when uhttpd was started with an
  * address it could not resolve, in which case it exits immediately while procd
  * keeps respawning it.
+ *
+ * `enabled` is the configuration switch, which is a different question from
+ * whether the daemon happens to be alive: a portal the user turned off is not a
+ * fault, and the UI must be able to tell the two apart. Absent means enabled,
+ * so configurations written before the switch existed keep working.
  */
 function status() {
 	const uci = cursor();
 
 	uci.load(CONFIG);
 
+	const general = first_section(uci, 'portal');
 	const port = configured_port(uci);
 	const pid = service_pid();
 	const ip = lan_ip();
@@ -278,6 +391,7 @@ function status() {
 
 	return {
 		ok: true,
+		enabled: (general.enabled ?? '1') != '0',
 		running: pid != null,
 		pid: pid,
 		port: port,
@@ -304,11 +418,32 @@ function generate() {
 	const data = {
 		title: general.title ?? 'Portal',
 		background: '',
+		background_v: '',
 		links: collect_links(uci)
 	};
 
-	if (general.background_file != null && general.background_file != '')
+	if (general.background_file != null && general.background_file != '') {
 		data.background = asset_path(general.background_file, 'bg');
+
+		/*
+		 * Replacing the background keeps the URL unchanged, so the browser would
+		 * keep showing the cached copy. The file's modification time rides
+		 * along as a cache buster and makes a plain reload pick up the new
+		 * image.
+		 *
+		 * The size is part of the version on purpose. mtime has one second
+		 * resolution, and an upload renames a freshly written file into place,
+		 * which preserves that file's own timestamp - so two changes within
+		 * the same second would otherwise share a version. Including the size
+		 * covers the common case (a different picture), and the pair is still
+		 * a short token in the URL.
+		 */
+		const file = asset_file(general.background_file, 'bg');
+		const info = (file != null) ? stat(file) : null;
+
+		if (info != null)
+			data.background_v = sprintf('%d-%d', info.mtime, info.size);
+	}
 	else if (general.background != null && general.background != '')
 		data.background = general.background;
 
@@ -326,6 +461,28 @@ function generate() {
 }
 
 /*
+ * Classify a listening port for the scan result.
+ *
+ * A port number says nothing about the protocol spoken on it, so this can only
+ * report what is actually known: `false` for services a browser cannot open,
+ * `true` for the ones it can, and the string 'unknown' for everything else.
+ * The caller decides what to do with 'unknown' - guessing either way would be
+ * wrong, since a self hosted service on an unusual port is perfectly valid.
+ */
+function classify_port(port) {
+	const key = sprintf('%d', port);
+	const svc = SVC[port] ?? '';
+
+	if (NOT_WEB_PORTS[key] == true || NOT_WEB[svc] == true)
+		return { web: false, svc: svc };
+
+	if (IS_WEB[svc] == true)
+		return { web: true, svc: svc };
+
+	return { web: 'unknown', svc: svc };
+}
+
+/*
  * Report the locally reachable listening TCP services. The optional `ports`
  * array restricts the result to those ports.
  */
@@ -335,47 +492,226 @@ function scan(request) {
 
 	for (let key in listening_ports(requested)) {
 		const port = int(key);
+		const verdict = classify_port(port);
 
-		push(result, { port: port, svc: SVC[port] ?? '' });
+		push(result, { port: port, svc: verdict.svc, web: verdict.web });
 	}
 
 	return { lan_ip: lan_ip(), ports: result };
 }
 
+/* --------------------------------------------------------- asset handling -- */
+
+/*
+ * Read and validate the { dir, name } pair every asset method takes. Returns
+ * either { dir: <path>, name: <file> } or { error: <message> }.
+ */
+function asset_target(request) {
+	const body = (type(request) == 'object' && request != null) ? request : {};
+	const dir = asset_dir(body.dir);
+
+	if (dir == null)
+		return { error: 'unknown asset directory' };
+
+	if (!valid_name(body.name))
+		return { error: 'invalid file name' };
+
+	return { dir: dir, name: body.name };
+}
+
+/*
+ * Move an uploaded file from the temporary path into the asset directory.
+ *
+ * The browser can only write to TMP_UPLOAD, and the destination is resolved
+ * here, which keeps the decision about where a file lands on the server. A
+ * plain rename(2) also means the payload never travels inside a ubus message,
+ * so this path has no size limit of its own.
+ *
+ * Named upload_asset() rather than upload() so it cannot be confused with the
+ * rename() imported from fs - a local function of the same name would shadow
+ * the import for the whole file.
+ */
+function upload_asset(request) {
+	const target = asset_target(request);
+
+	if (target.error != null)
+		return { ok: false, error: target.error };
+
+	const tmp = stat(TMP_UPLOAD);
+
+	if (tmp == null)
+		return { ok: false, error: 'no uploaded file found' };
+
+	if ((tmp.size ?? 0) > MAX_UPLOAD) {
+		unlink(TMP_UPLOAD);
+		return { ok: false, error: 'file exceeds the 2 MiB limit' };
+	}
+
+	const dst = target.dir + '/' + target.name;
+
+	if (stat(dst) != null)
+		return { ok: false, error: 'a file of that name already exists' };
+
+	ensure_dir(target.dir);
+
+	if (rename(TMP_UPLOAD, dst) != true) {
+		unlink(TMP_UPLOAD);
+		return { ok: false, error: 'unable to store the file' };
+	}
+
+	chmod(dst, 0o644);
+
+	return { ok: true, name: target.name };
+}
+
+/*
+ * Drop every uci reference to a file that is about to disappear: the current
+ * background and the icon of each bookmark using it. Leaving them behind would
+ * point the portal at a file that no longer exists.
+ */
+function clear_references(uci, path) {
+	let touched = 0;
+
+	uci.foreach(CONFIG, 'portal', (section) => {
+		if (section.background_file != path)
+			return;
+
+		uci.delete(CONFIG, section['.name'], 'background_file');
+		touched++;
+	});
+
+	uci.foreach(CONFIG, 'link', (section) => {
+		if (section.icon != path)
+			return;
+
+		uci.delete(CONFIG, section['.name'], 'icon');
+		touched++;
+	});
+
+	return touched;
+}
+
+/*
+ * Write the cursor's changes back to /etc/config/portal.
+ *
+ * commit(), not save(). rpcd hands a plugin a cursor with no session savedir,
+ * so save() has nowhere to stage into and silently leaves the file untouched -
+ * verified: set() + save() writes nothing, set() + commit() rewrites the file.
+ * An asset operation is not something the user can undo by reverting a staged
+ * change, so the result has to be on disk.
+ */
+function commit_references(uci) {
+	return uci.commit(CONFIG) == true;
+}
+
+/* Remove an asset and clean up the references pointing at it. */
+function remove_asset(request) {
+	const target = asset_target(request);
+
+	if (target.error != null)
+		return { ok: false, error: target.error };
+
+	const path = target.dir + '/' + target.name;
+
+	if (stat(path) == null)
+		return { ok: false, error: 'no such file' };
+
+	const uci = cursor();
+
+	uci.load(CONFIG);
+
+	const references = clear_references(uci, path);
+
+	/*
+	 * Delete the file only after the references are known; a failed commit
+	 * must not leave the configuration pointing at a file that is still there
+	 * but no longer wanted - the safe order is to keep both or neither.
+	 */
+	if (references > 0 && !commit_references(uci))
+		return { ok: false, error: 'unable to update the configuration' };
+
+	if (unlink(path) != true)
+		return { ok: false, error: 'unable to delete the file' };
+
+	return { ok: true, name: target.name, references: references };
+}
+
+/*
+ * Rename an asset in place. Going through rename(2) rather than a read and a
+ * write is what makes this usable for the multi-megabyte backgrounds - there is
+ * no size ceiling involved at all.
+ *
+ * A rename has to carry the references along with it, otherwise the background
+ * or the bookmark icons would point at the old name.
+ *
+ * Named rename_asset() for the same reason as upload_asset().
+ */
+function rename_asset(request) {
+	const body = (type(request) == 'object' && request != null) ? request : {};
+	const target = asset_target(body);
+
+	if (target.error != null)
+		return { ok: false, error: target.error };
+
+	if (!valid_name(body.new_name))
+		return { ok: false, error: 'invalid file name' };
+
+	if (body.new_name == target.name)
+		return { ok: false, error: 'the name is unchanged' };
+
+	const src = target.dir + '/' + target.name;
+	const dst = target.dir + '/' + body.new_name;
+
+	if (stat(src) == null)
+		return { ok: false, error: 'no such file' };
+
+	if (stat(dst) != null)
+		return { ok: false, error: 'a file of that name already exists' };
+
+	const uci = cursor();
+
+	uci.load(CONFIG);
+
+	/* Work out what has to follow the file before moving it, so a failed
+	 * rename cannot leave the configuration naming a file that is gone. */
+	const general = first_section_name(uci, 'portal');
+	const follows = (general != null && uci.get(CONFIG, general, 'background_file') == src);
+	const links = [];
+
+	uci.foreach(CONFIG, 'link', (section) => {
+		if (section.icon == src)
+			push(links, section['.name']);
+	});
+
+	if (rename(src, dst) != true)
+		return { ok: false, error: 'unable to rename the file' };
+
+	chmod(dst, 0o644);
+
+	/* Only touch the configuration when something actually refers to the old
+	 * name - an unused icon should leave the config untouched. */
+	if (follows)
+		uci.set(CONFIG, general, 'background_file', dst);
+
+	for (let i = 0; i < length(links); i++)
+		uci.set(CONFIG, links[i], 'icon', dst);
+
+	if ((follows || length(links) > 0) && !commit_references(uci)) {
+		/* Put the file back so the configuration and the directory agree. */
+		rename(dst, src);
+		return { ok: false, error: 'unable to update the configuration' };
+	}
+
+	return { ok: true, name: body.new_name };
+}
+
 const methods = {
 	generate: { call: () => generate() },
 	scan: { call: (request) => scan(request) },
-	status: { call: () => status() }
+	status: { call: () => status() },
+	upload: { call: (request) => upload_asset(request) },
+	remove: { call: (request) => remove_asset(request) },
+	rename: { call: (request) => rename_asset(request) }
 };
-
-/*
- * Command line mode, used by /etc/init.d/portal and the package post-install
- * script:
- *
- *     ucode /usr/share/rpcd/ucode/portal.uc --cli generate
- *     ucode /usr/share/rpcd/ucode/portal.uc --cli status
- *
- * rpcd never passes `--cli`, so the two modes cannot be mixed up. ARGV holds
- * only the script arguments, the interpreter and file name are not included.
- * The result is printed as JSON, which makes the CLI usable for debugging.
- */
-if (ARGV[0] == '--cli') {
-	const method = methods[ARGV[1]];
-
-	if (method == null) {
-		printf('usage: ucode portal.uc --cli {%s}\n', join('|', keys(methods)));
-		exit(1);
-	}
-
-	const result = method.call(null);
-
-	if (type(result) == 'object' && result.ok == false) {
-		printf('%s\n', result.error ?? 'operation failed');
-		exit(1);
-	}
-
-	printf('%J\n', result);
-	exit(0);
-}
 
 return { 'luci.portal': methods };
