@@ -222,14 +222,29 @@ function ip4_to_proc_hex(ip) {
 	return sprintf('%02X%02X%02X%02X', octets[3], octets[2], octets[1], octets[0]);
 }
 
+/*
+ * The LAN address the portal can be reached at.
+ *
+ * Two things about `ipaddr` are easy to get wrong and both were: it is written
+ * in CIDR form on most configurations ("192.168.1.1/24"), which has to be
+ * stripped before it is put into a URL, and some ucode builds hand a list value
+ * back as an array, which a plain type check then rejects - the address came
+ * back empty and the status page showed "unknown" for a portal that was up.
+ */
 function lan_ip() {
 	const uci = cursor();
 
 	uci.load('network');
 
-	const ip = uci.get('network', 'lan', 'ipaddr');
+	let ip = uci.get('network', 'lan', 'ipaddr');
 
-	return type(ip) == 'string' ? ip : '';
+	if (type(ip) == 'array')
+		ip = ip[0];
+
+	if (type(ip) != 'string')
+		return '';
+
+	return split(ip, '/')[0];
 }
 
 /* ----------------------------------------------------------- port scanning -- */
