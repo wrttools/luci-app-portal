@@ -457,6 +457,21 @@ function generate() {
 	fd.write(sprintf('%J', data));
 	fd.close();
 
+	/*
+	 * The mode passed to open() is masked by the process umask, and rpcd
+	 * inherits umask 077 from procd - so the file came out 0600 instead of
+	 * 0644, and only the owner could read it. uhttpd runs as root today and
+	 * reads it anyway, but the portal page then depends on that: as soon as
+	 * the server is started as a non-root user, or the file is fetched by
+	 * anything else, links.json answers 403 and the page silently shows no
+	 * bookmarks at all.
+	 *
+	 * chmod() is not subject to the umask, so this is what actually pins the
+	 * mode - the same thing the upload paths below do for the files they
+	 * store.
+	 */
+	chmod(WWW + '/links.json', 0o644);
+
 	return { ok: true, title: data.title, links: length(data.links) };
 }
 
