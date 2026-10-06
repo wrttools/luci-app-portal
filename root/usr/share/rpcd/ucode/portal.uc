@@ -29,7 +29,7 @@
 'use strict';
 
 import { cursor } from 'uci';
-import { chmod, glob, mkdir, open, readfile, rename, stat, unlink } from 'fs';
+import { chmod, error, glob, mkdir, open, readfile, rename, stat, unlink, writefile } from 'fs';
 
 const CONFIG = 'portal';
 const WWW = '/etc/portal/www';
@@ -550,12 +550,30 @@ function asset_target(request) {
 }
 
 /*
+ * The errno text of the last failed fs operation, appended to a message.
+ *
+ * ucode keeps the reason in a slot that fs.error() clears as soon as it is
+ * read, so this has to run immediately after the failure - another fs call in
+ * between would overwrite it. Without the text every failure looks alike,
+ * which is what made the cross-device rename below look like a mystery.
+ */
+function with_errno(message) {
+	const reason = error();
+
+	return (reason != null) ? message + ': ' + reason : message;
+}
+
+/*
  * Move an uploaded file from the temporary path into the asset directory.
  *
  * The browser can only write to TMP_UPLOAD, and the destination is resolved
- * here, which keeps the decision about where a file lands on the server. A
- * plain rename(2) also means the payload never travels inside a ubus message,
- * so this path has no size limit of its own.
+ * here, which keeps the decision about where a file lands on the server.
+ *
+ * The bytes are copied rather than renamed into place: the upload lands in
+ * /tmp, a tmpfs of its own, while the asset directories live on the overlay.
+ * rename(2) cannot cross a mount and fails with EXDEV ("Cross-device link"),
+ * which is what made every upload answer "unable to store the file". The
+ * payload is capped at 2 MiB above, so copying it through memory is cheap.
  *
  * Named upload_asset() rather than upload() so it cannot be confused with the
  * rename() imported from fs - a local function of the same name would shadow
@@ -584,10 +602,22 @@ function upload_asset(request) {
 
 	ensure_dir(target.dir);
 
-	if (rename(TMP_UPLOAD, dst) != true) {
-		unlink(TMP_UPLOAD);
-		return { ok: false, error: 'unable to store the file' };
+	const data = readfile(TMP_UPLOAD);
+
+	if (data == null)
+		return { ok: false, error: with_errno('unable to read the uploaded file') };
+
+	if (writefile(dst, data) == null) {
+		/* Read the reason before touching the filesystem again. */
+		const reason = with_errno('unable to store the file');
+
+		/* A half written file would block the retry as "already exists". */
+		unlink(dst);
+
+		return { ok: false, error: reason };
 	}
+
+	unlink(TMP_UPLOAD);
 
 	chmod(dst, 0o644);
 
@@ -735,13 +765,28 @@ function rename_asset(request) {
 	return { ok: true, name: body.new_name };
 }
 
+/*
+ * The rpcd method signature.
+ *
+ * Every method that is called with named arguments has to declare them here.
+ * rpcd derives the ubus argument policy from this `args` dictionary and rejects
+ * a call carrying a name the dictionary does not list with
+ * UBUS_STATUS_INVALID_ARGUMENT before the callback runs. A method without an
+ * `args` entry therefore accepts no arguments at all - which is why upload(),
+ * remove(), rename() and scan() used to come back as "Invalid argument" while
+ * the view still reported success.
+ *
+ * The values are type hints, not defaults: rpcd only uses their ucode type to
+ * build the policy (string below, an array for the port list), and the callback
+ * reads whatever actually arrived from `request.args`.
+ */
 const methods = {
 	generate: { call: () => generate() },
-	scan: { call: (request) => scan(request) },
+	scan: { args: { ports: [] }, call: (request) => scan(request?.args) },
 	status: { call: () => status() },
-	upload: { call: (request) => upload_asset(request) },
-	remove: { call: (request) => remove_asset(request) },
-	rename: { call: (request) => rename_asset(request) }
+	upload: { args: { dir: '', name: '' }, call: (request) => upload_asset(request?.args) },
+	remove: { args: { dir: '', name: '' }, call: (request) => remove_asset(request?.args) },
+	rename: { args: { dir: '', name: '', new_name: '' }, call: (request) => rename_asset(request?.args) }
 };
 
 return { 'luci.portal': methods };

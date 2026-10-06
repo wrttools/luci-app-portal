@@ -23,20 +23,27 @@
  * into the extend object would rebuild them on every instantiation.
  */
 
+/*
+ * `reject: true` is not optional here: it is what turns a rejected ubus call
+ * into a rejected promise instead of a result of 2. See run_rpc() below.
+ */
 const callStatus = rpc.declare({
 	object: 'luci.portal',
-	method: 'status'
+	method: 'status',
+	reject: true
 });
 
 const callGenerate = rpc.declare({
 	object: 'luci.portal',
-	method: 'generate'
+	method: 'generate',
+	reject: true
 });
 
 const callScan = rpc.declare({
 	object: 'luci.portal',
 	method: 'scan',
-	params: [ 'ports' ]
+	params: [ 'ports' ],
+	reject: true
 });
 
 /*
@@ -90,11 +97,31 @@ return baseclass.extend(/** @lends LuCI.portal.common.prototype */ {
 	 *
 	 * okMsg is a string, or a function(result) returning one; it is skipped when the
 	 * action resolves to null.
+	 *
+	 * Failures arrive in two shapes and both have to be caught here:
+	 *
+	 *  - an ubus level error (unknown method, missing ACL entry, an argument the
+	 *    method policy does not allow) never reaches the action at all. LuCI
+	 *    resolves the numeric status as the call result unless the rpc.declare()
+	 *    for that method sets `reject: true`, so every declaration in this app
+	 *    carries it - without it a failed call is indistinguishable from success;
+	 *  - an application level failure (a name that is already taken, a directory
+	 *    that cannot be written) resolves normally with { ok: false, error: ... },
+	 *    which is rethrown just below.
 	 */
 	run_rpc(action, okMsg) {
 		return Promise.resolve()
 			.then(action)
 			.then((res) => {
+				/*
+				 * The backend reports failure by resolving with { ok: false, error:
+				 * ... } instead of rejecting, so a bare null check would read it as
+				 * success. Rethrow it so the catch below reports the error instead
+				 * of a bogus success notification.
+				 */
+				if (res != null && res.ok === false)
+					throw new Error(res.error);
+
 				if (okMsg != null && res != null)
 					ui.addNotification(null, E('p', {},
 						(typeof(okMsg) === 'function') ? okMsg(res) : okMsg), 'info');
