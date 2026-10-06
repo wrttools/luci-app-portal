@@ -205,6 +205,10 @@ msgstr "保存这一行"
 msgid "Bookmark saved."
 msgstr "已保存该书签。"
 
+#: htdocs/luci-static/resources/view/portal/bookmarks.js:281
+msgid "Saved"
+msgstr "已保存"
+
 #: htdocs/luci-static/resources/view/portal/bookmarks.js:166
 #, javascript-format
 msgid "Disabled %d bookmark(s). Press \"Save & Apply\" to keep the change."

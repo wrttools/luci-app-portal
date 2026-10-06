@@ -87,6 +87,25 @@ return baseclass.extend(/** @lends LuCI.portal.common.prototype */ {
 	},
 
 	/*
+	 * Show a notification, replacing the previous one this app put up.
+	 *
+	 * ui.addNotification() inserts a fresh banner at the top of #maincontent and
+	 * never takes an old one down, so repeated clicks on Save or "Select all"
+	 * stack the banners up and the page grows taller with every click. Holding
+	 * on to the node the previous call returned and removing it first leaves at
+	 * most one banner on screen, which is what makes the message readable
+	 * instead of a wall of identical lines.
+	 */
+	notify(title, children, type) {
+		if (this._notification != null && this._notification.parentNode != null)
+			this._notification.parentNode.removeChild(this._notification);
+
+		this._notification = ui.addNotification(title, children, type);
+
+		return this._notification;
+	},
+
+	/*
 	 * Run an action that talks to the backend, with visible feedback either way.
 	 *
 	 * LuCI does not do this for us: ui.createHandlerFn() wraps a button handler in
@@ -123,14 +142,14 @@ return baseclass.extend(/** @lends LuCI.portal.common.prototype */ {
 					throw new Error(res.error);
 
 				if (okMsg != null && res != null)
-					ui.addNotification(null, E('p', {},
+					this.notify(null, E('p', {},
 						(typeof(okMsg) === 'function') ? okMsg(res) : okMsg), 'info');
 
 				return res;
 			})
 			.catch((err) => {
 				/* 'error' is defined by both the bootstrap and the argon themes. */
-				ui.addNotification(_('Error'),
+				this.notify(_('Error'),
 					E('p', {}, _('Operation failed: %s').format((err && err.message) || err)),
 					'error');
 
