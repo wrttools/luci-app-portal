@@ -1,10 +1,16 @@
-# Portal: switch, port, title and background of the dashboard served by
-# /etc/init.d/portal. Set enabled to '0' to stop the portal daemon.
+# Portal: switch, port, title, background and appearance of the dashboard served
+# by /etc/init.d/portal. Set enabled to '0' to stop the portal daemon.
+#
+# The three appearance percentages are what the LuCI sliders write. Deleting one
+# falls back to the same value in the backend, so the page keeps its look.
 config portal
 	option enabled '1'
 	option port '8180'
 	option title 'My Portal'
 	option background '#0e1116'
+	option bg_veil '78'
+	option bg_blur '0'
+	option card_transparency '45'
 
 # Sample bookmarks. "Scan for local services" in LuCI adds the ones that are
 # actually listening on this router as disabled entries - tick and apply.

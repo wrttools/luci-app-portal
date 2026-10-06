@@ -105,6 +105,42 @@ msgstr "当前背景图片"
 msgid "Chosen on the Assets page. It takes precedence over the colour."
 msgstr "在「素材库」页选择，优先级高于背景颜色。"
 
+#: htdocs/luci-static/resources/view/portal/general.js:210
+msgid "Background veil"
+msgstr "背景遮罩强度"
+
+#: htdocs/luci-static/resources/view/portal/general.js:211
+msgid ""
+"How strongly a background image is dimmed, in percent. 0 leaves the photo as "
+"it is, 100 hides it behind a solid scrim. Only applies when a background "
+"image is set."
+msgstr ""
+"背景图被压暗的程度（百分比）。0 表示保持照片原样，100 表示用纯色遮罩完全盖住。"
+"仅在设置了背景图时生效。"
+
+#: htdocs/luci-static/resources/view/portal/general.js:221
+msgid "Background blur"
+msgstr "背景磨砂模糊"
+
+#: htdocs/luci-static/resources/view/portal/general.js:222
+msgid ""
+"Frosted-glass blur applied to a background image, in percent of the maximum "
+"(20 px). 0 keeps the photo sharp."
+msgstr ""
+"对背景图施加的磨砂模糊，以最大值（20 px）的百分比表示。0 表示照片保持清晰。"
+
+#: htdocs/luci-static/resources/view/portal/general.js:232
+msgid "Bookmark transparency"
+msgstr "书签透明度"
+
+#: htdocs/luci-static/resources/view/portal/general.js:233
+msgid ""
+"Transparency of the bookmark cards, in percent. 0 makes them solid, 100 lets "
+"the background shine through completely; the text stays readable either way."
+msgstr ""
+"书签卡片的透明度（百分比）。0 表示完全不透明，100 表示背景完全透出；"
+"两种取值下文字都保持可读。"
+
 #: htdocs/luci-static/resources/view/portal/general.js:197
 msgid "none"
 msgstr "无"
