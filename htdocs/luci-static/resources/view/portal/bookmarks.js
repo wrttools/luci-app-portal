@@ -195,7 +195,7 @@ const BookmarkTable = form.TableSection.extend({
 		this.sync_select_all();
 
 		if (count > 0)
-			ui.addNotification(null, E('p', {}, on
+			common.notify(null, E('p', {}, on
 				? _('Enabled %d bookmark(s). Press "Save & Apply" to keep the change.').format(count)
 				: _('Disabled %d bookmark(s). Press "Save & Apply" to keep the change.').format(count)), 'info');
 	},
@@ -271,7 +271,15 @@ const BookmarkTable = form.TableSection.extend({
 
 				return common.run_rpc(function() {
 					return save_row(section, section_id);
-				}, _('Bookmark saved.'));
+				}, _('Bookmark saved.')).then(function(res) {
+					/*
+					 * run_rpc() resolves to null when the call failed, so the label
+					 * only switches on a real save; a rejected one keeps saying
+					 * "Save", with the error banner explaining why.
+					 */
+					if (res != null)
+						save.textContent = _('Saved');
+				});
 			}
 		}, [ _('Save') ]);
 
@@ -302,7 +310,7 @@ const BookmarkTable = form.TableSection.extend({
 				});
 
 				if (!sids.length) {
-					ui.addNotification(null, E('p', {}, only_disabled
+					common.notify(null, E('p', {}, only_disabled
 						? _('There is no disabled bookmark to delete.')
 						: _('There is no bookmark to delete.')), 'info');
 
