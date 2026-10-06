@@ -7,8 +7,27 @@ body {
   color: #e6e6e6;
   min-height: 100vh;
 }
+/*
+ * Scrim: sits above the background image and below the content. It only dims
+ * (pointer-events: none), so a background photo stays visible while the text
+ * on top of it stays readable.
+ *
+ * The palette below assumes a dark background - light grey text and cards at
+ * 6% white - which is fine on body's own #0e1116, but a bright photo swallows
+ * both and the page ends up showing nothing but the picture. Asset management
+ * only started working in v2.0.0-r20, so this combination had never actually
+ * been looked at.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(10, 12, 16, .45), rgba(10, 12, 16, .78));
+}
 .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
-h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; }
+h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -23,15 +42,20 @@ h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; }
   gap: 10px;
   padding: 20px 12px;
   border-radius: 14px;
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.08);
+  /*
+   * A translucent dark surface instead of the old 6% white: on a bright photo
+   * the latter is effectively invisible. Together with backdrop-filter the
+   * card stays legible over any background.
+   */
+  background: rgba(16, 19, 25, .55);
+  border: 1px solid rgba(255,255,255,.14);
   text-decoration: none;
   color: inherit;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(10px);
   transition: .15s;
 }
 .card:hover {
-  background: rgba(255,255,255,.12);
+  background: rgba(16, 19, 25, .78);
   transform: translateY(-2px);
 }
 .card .ico {
@@ -52,4 +76,5 @@ h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; }
   font-size: 13px;
   text-align: center;
   word-break: break-word;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
 }
