@@ -34,7 +34,7 @@
 | 独立端口 | 再起一个 `uhttpd` 实例，端口自选，并校验是否与主 LuCI 冲突 |
 | 书签 | 增删与启用/禁用；图标支持 emoji、远程 URL 或素材库里的图片 |
 | 素材库 | 上传（单个 ≤ 2 MiB）、预览、重命名、列出与删除图标/背景图，并可直接设为页面背景 |
-| 外观 | 页面标题、CSS 背景色，或背景图 |
+| 外观 | 页面标题、CSS 背景色或背景图，另有背景压暗、磨砂模糊、书签卡片透明度三个 0–100 滑块 |
 | Discovery | 读取 `/proc/net/tcp[6]`，把已知的 Web 服务加成**禁用**书签，其余端口交给你决定 |
 | 运行状态 | 分别显示进程是否存活、端口是否真的被监听、访问地址与已生成的书签数 |
 | 纯静态 | 配置存 `uci`，生成 `links.json` 供前端读取，页面本身不需要后端 |
@@ -51,10 +51,10 @@
 
 ```sh
 # OpenWrt 25.12 及更新（apk）
-apk add --allow-untrusted ./luci-app-portal-2.0.0-r22.apk
+apk add --allow-untrusted ./luci-app-portal-2.0.0-r23.apk
 
 # OpenWrt 24.10 及更早（opkg），需用对应 SDK 构建
-opkg install ./luci-app-portal_2.0.0-r22_all.ipk
+opkg install ./luci-app-portal_2.0.0-r23_all.ipk
 ```
 
 然后进 LuCI 的**服务 → Portal**，或直接访问 `http://<路由器>:8180/`。
@@ -126,11 +126,14 @@ mDNS。与其双向猜测，不如把未识别的端口列出来让你一次性�
 
 ```
 config portal
-	option enabled         '1'         # 总开关；'0' 停止门户
-	option port            '8180'      # 门户监听端口
-	option title           'My Portal' # 页面标题与 <title>
-	option background      '#0e1116'   # CSS 颜色
-	option background_file ''          # /etc/portal/www 下的绝对路径
+	option enabled           '1'         # 总开关；'0' 停止门户
+	option port              '8180'      # 门户监听端口
+	option title             'My Portal' # 页面标题与 <title>
+	option background        '#0e1116'   # CSS 颜色
+	option background_file   ''          # /etc/portal/www 下的绝对路径
+	option bg_veil           '78'        # 0-100：背景图被压暗的程度
+	option bg_blur           '0'         # 0-100：磨砂模糊，100 等于最大值 20 px
+	option card_transparency '45'        # 0-100：100 表示卡片完全透出背景
 
 config link
 	option name     'AdGuard Home'
@@ -138,6 +141,10 @@ config link
 	option icon_url '🛡️'              # 或：option icon '/etc/portal/www/icons/x.png'
 	option enabled  '1'
 ```
+
+`links.json` 原样带上标题、背景与三个外观百分比；`portal.js` 把百分比转成
+`portal.css` 消费的 CSS 自定义属性，所以门户页自己不必读 uci。删掉其中任何一项都会
+在后台回落到同一个值 —— 这正是「这些选项存在之前写下的配置」外观不变的原因。
 
 `/etc/config/portal` 一有变化，`links.json` 会自动重新生成（LuCI 点「保存并应用」，
 或 `uci commit` 加 `/etc/init.d/portal reload`）。页面上的**立即重新生成 links.json**
