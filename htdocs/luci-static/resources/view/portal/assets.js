@@ -185,9 +185,43 @@ function safe_thumbnail(dir, entry) {
 	}
 }
 
-function reload_soon() {
-	/* Let the notification be readable before the page is replaced. */
-	window.setTimeout(function() { window.location.reload(); }, 1200);
+/*
+ * Rebuild just the two asset lists instead of reloading the page.
+ *
+ * This used to call window.location.reload() (after a 1.2 s delay): every
+ * upload / rename / delete threw the whole page away and rebuilt it, which
+ * loses the scroll position and discards staged uci changes the user had not
+ * applied yet. Re-reading the two directories and swapping out only the list
+ * container keeps the session intact; the notification run_rpc() puts up is
+ * the feedback that actually matters.
+ *
+ * The container is remembered here rather than threaded through asset_section:
+ * this module is loaded once per page, and render() reassigns it on every
+ * re-render, so a stale reference simply makes the swap a no-op.
+ */
+let assets_host = null;
+
+function refresh_assets() {
+	return Promise.all([
+		fs.list(ICON_DIR).catch(function() { return []; }),
+		fs.list(BG_DIR).catch(function() { return []; })
+	]).then(function(data) {
+		const icons = data[0] || [];
+		const bgs = data[1] || [];
+		const sections = uci.sections('portal', 'portal');
+		const current_bg = sections.length
+			? (uci.get('portal', sections[0]['.name'], 'background_file') || '')
+			: '';
+
+		if (assets_host == null || assets_host.parentNode == null)
+			return;
+
+		while (assets_host.firstChild)
+			assets_host.removeChild(assets_host.firstChild);
+
+		assets_host.appendChild(asset_section(_('Icons'), ICON_DIR, icons, null));
+		assets_host.appendChild(asset_section(_('Backgrounds'), BG_DIR, bgs, current_bg));
+	});
 }
 
 /*
@@ -223,7 +257,7 @@ function upload(dir, file) {
 			});
 	}, _('Uploaded %s.').format(name)).then(function(res) {
 		if (res != null)
-			reload_soon();
+			refresh_assets();
 	});
 }
 
@@ -292,7 +326,7 @@ function rename_file(dir, entry) {
 						return callRename(dir_key(dir), entry.name, name);
 					}, _('Renamed to %s.').format(name)).then(function(res) {
 						if (res != null)
-							reload_soon();
+							refresh_assets();
 					});
 				}
 			}, _('Rename'))
@@ -322,7 +356,7 @@ function remove_file(dir, entry) {
 						return callRemove(dir_key(dir), entry.name);
 					}, _('Deleted %s.').format(entry.name)).then(function(res) {
 						if (res != null)
-							reload_soon();
+							refresh_assets();
 					});
 				}
 			}, _('Delete'))
@@ -350,7 +384,15 @@ function set_background(entry) {
 	return common.run_rpc(function() {
 		return uci.save();
 	}, _('Background set to %s. Press "Save & Apply" below to make it take effect.')
-		.format(entry.name));
+		.format(entry.name)).then(function(res) {
+		/*
+		 * uci.set() already rewrote the in-memory value, so re-rendering here
+		 * makes the "(current)" marker move right away - without a page
+		 * reload, which is what this used to take.
+		 */
+		if (res != null)
+			return refresh_assets();
+	});
 }
 
 function asset_section(title, dir, entries, current_bg) {
@@ -431,14 +473,24 @@ return view.extend({
 			 * background is picked up by uci.save() rather than by a form widget,
 			 * so no form.Map is needed - the button commits whatever uci has staged.
 			 */
+			/*
+			 * Both lists live in one container so refresh_assets() can swap out
+			 * just their contents. The cbi-map wrapper and the page footer stay
+			 * where they are, which is what keeps a local refresh from losing
+			 * the scroll position or dropping staged changes.
+			 */
+			assets_host = E('div', {}, [
+				asset_section(_('Icons'), ICON_DIR, this.icons, null),
+				asset_section(_('Backgrounds'), BG_DIR, this.bgs, this.current_bg)
+			]);
+
 			return E('div', { class: 'cbi-map' }, [
 				E('h2', {}, _('Assets')),
 				E('div', { class: 'cbi-map-descr' },
 					_('Icons and background images offered to the portal. Files are served ' +
 					  'from the portal document root, picked for a bookmark on the ' +
 					  'Bookmarks page, or set as the page background here.')),
-				asset_section(_('Icons'), ICON_DIR, this.icons, null),
-				asset_section(_('Backgrounds'), BG_DIR, this.bgs, this.current_bg)
+				assets_host
 			]);
 		}.bind(this));
 	}
