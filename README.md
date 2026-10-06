@@ -36,7 +36,7 @@ the portal page itself never needs a backend.
 | Own port | Runs a second `uhttpd` on a port you pick, validated against clashes with the main instance |
 | Bookmarks | Add, enable/disable and delete; emoji, remote URL or an image from the asset library |
 | Asset library | Upload (2 MiB per file), preview, rename, list and delete icons and background images, and pick the page background |
-| Appearance | Page title, CSS background colour or a background image |
+| Appearance | Page title, CSS background colour or a background image, plus 0-100 sliders for background dimming, frosted blur and bookmark-card transparency |
 | Discovery | Scans `/proc/net/tcp[6]` for locally reachable listening services, adds the known web ones as *disabled* bookmarks, and asks about the rest |
 | Status panel | Reports whether the daemon is running *and* whether it actually owns the port, plus the URL and the baked bookmark count |
 | Static output | Everything is persisted in `uci` and rendered into `links.json`; the page is plain HTML/JS |
@@ -53,10 +53,10 @@ the portal page itself never needs a backend.
 
 ```sh
 # OpenWrt 25.12 and newer (apk)
-apk add --allow-untrusted ./luci-app-portal-2.0.0-r22.apk
+apk add --allow-untrusted ./luci-app-portal-2.0.0-r23.apk
 
 # OpenWrt 24.10 and older (opkg), built from the matching SDK
-opkg install ./luci-app-portal_2.0.0-r22_all.ipk
+opkg install ./luci-app-portal_2.0.0-r23_all.ipk
 ```
 
 Then open **Services → Portal** in LuCI, or go straight to
@@ -132,11 +132,14 @@ that dies on startup, so a pid alone would hide a portal that never answers.
 
 ```
 config portal
-	option enabled         '1'         # master switch; '0' stops the portal
-	option port            '8180'      # listening port of the portal
-	option title           'My Portal' # page heading and <title>
-	option background      '#0e1116'   # CSS colour
-	option background_file ''          # absolute path below /etc/portal/www
+	option enabled           '1'         # master switch; '0' stops the portal
+	option port              '8180'      # listening port of the portal
+	option title             'My Portal' # page heading and <title>
+	option background        '#0e1116'   # CSS colour
+	option background_file   ''          # absolute path below /etc/portal/www
+	option bg_veil           '78'        # 0-100: how strongly a background image is dimmed
+	option bg_blur           '0'         # 0-100: frosted blur, 100 = the 20 px maximum
+	option card_transparency '45'        # 0-100: 100 = bookmark cards fully see-through
 
 config link
 	option name     'AdGuard Home'
@@ -145,8 +148,14 @@ config link
 	option enabled  '1'
 ```
 
-`links.json` is regenerated automatically whenever `/etc/config/portal` changes
-(LuCI *Save & Apply*, or `uci commit` plus `/etc/init.d/portal reload`). The
+`links.json` carries the title, the background and the three appearance
+percentages as they are written in uci; `portal.js` turns the percentages into
+the CSS custom properties `portal.css` consumes, so the served page never has to
+read uci itself. Deleting one of them falls back to the same value in the
+backend, which is how a configuration written before they existed keeps its look.
+
+It is regenerated automatically whenever `/etc/config/portal` changes (LuCI
+*Save & Apply*, or `uci commit` plus `/etc/init.d/portal reload`). The
 **Regenerate links.json now** button forces it.
 
 ## Troubleshooting

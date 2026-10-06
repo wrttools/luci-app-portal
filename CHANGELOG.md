@@ -3,7 +3,14 @@
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [2.0.0-r23] - 2026-10-06
+
+### Added
+
+- 门户页外观可调：新增三个 0–100 的滑块 —— **背景遮罩强度**（`bg_veil`）、
+  **背景磨砂模糊**（`bg_blur`，100 等于 20 px）、**书签卡片透明度**
+  （`card_transparency`）。取值由后端原样写进 `links.json`，门户页再转成 CSS 自定义
+  属性；未设置时沿用此前硬编码的 78 / 0 / 45，升级后外观不变。
 
 ## [2.0.0-r22] - 2026-10-06
 

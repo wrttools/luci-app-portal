@@ -8,23 +8,54 @@ body {
   min-height: 100vh;
 }
 /*
- * Scrim: sits above the background image and below the content. It only dims
- * (pointer-events: none), so a background photo stays visible while the text
- * on top of it stays readable.
+ * The page is painted in three layers, all of them below the content:
  *
- * The palette below assumes a dark background - light grey text and cards at
- * 6% white - which is fine on body's own #0e1116, but a bright photo swallows
- * both and the page ends up showing nothing but the picture. Asset management
- * only started working in v2.0.0-r20, so this combination had never actually
- * been looked at.
+ *   body         - the CSS background colour (solid, and the fallback if a photo fails)
+ *   body::before - the background photo, optionally frosted
+ *   body::after  - a scrim dimming whatever sits underneath
+ *
+ * The scrim is what keeps light grey text and translucent cards readable over an
+ * arbitrary photo: the palette below assumes a dark surface, and a bright picture
+ * swallows the content without it. Giving the photo a layer of its own is also
+ * what makes --bg-blur possible at all - blurring body would take the text along.
+ *
+ * Every appearance value is a custom property set by portal.js from links.json.
+ * The fallbacks are the values that used to be hard-coded (a 78% scrim, no blur,
+ * cards at 55% alpha), so a portal whose uci predates the new options renders
+ * exactly as it did before they existed.
  */
 body::before {
+  content: "";
+  position: fixed;
+
+  /*
+   * Blur bleeds transparent pixels at the edges of a layer, which would show up
+   * as a soft frame inside the viewport. Growing the layer by the blur radius
+   * pushes that frame off-screen; at 0px this is simply inset: 0.
+   */
+  inset: calc(-1 * var(--bg-blur, 0px));
+  z-index: -2;
+  pointer-events: none;
+  background-image: var(--bg-image, none);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(var(--bg-blur, 0px));
+}
+body::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(10, 12, 16, .45), rgba(10, 12, 16, .78));
+
+  /*
+   * Two stops out of one number: lighter at the top, where the heading sits,
+   * denser at the bottom. 0% is fully transparent, 100% hides the photo.
+   */
+  background: linear-gradient(180deg,
+    rgba(10, 12, 16, calc(var(--bg-veil, .78) * .6)),
+    rgba(10, 12, 16, var(--bg-veil, .78)));
 }
 .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
 h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
@@ -44,10 +75,11 @@ h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; text-shadow: 0 1px
   border-radius: 14px;
   /*
    * A translucent dark surface instead of the old 6% white: on a bright photo
-   * the latter is effectively invisible. Together with backdrop-filter the
-   * card stays legible over any background.
+   * the latter is effectively invisible. Together with backdrop-filter the card
+   * stays legible over any background. The alpha comes from the transparency
+   * slider, inverted - 0% transparency means a solid card.
    */
-  background: rgba(16, 19, 25, .55);
+  background: rgba(16, 19, 25, var(--card-alpha, .55));
   border: 1px solid rgba(255,255,255,.14);
   text-decoration: none;
   color: inherit;
@@ -55,7 +87,8 @@ h1 { font-weight: 600; letter-spacing: .5px; margin: 0 0 4px; text-shadow: 0 1px
   transition: .15s;
 }
 .card:hover {
-  background: rgba(16, 19, 25, .78);
+  /* More opaque on hover, but never past solid. */
+  background: rgba(16, 19, 25, min(1, calc(var(--card-alpha, .55) + .2)));
   transform: translateY(-2px);
 }
 .card .ico {

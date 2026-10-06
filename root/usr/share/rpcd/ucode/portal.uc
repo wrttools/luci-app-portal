@@ -419,6 +419,27 @@ function status() {
 }
 
 /*
+ * The appearance options are percentages in uci - that is what the sliders
+ * write - but the value is not trusted here: a hand-edited /etc/config/portal
+ * never went through the form, and something like "90 %" or a stray word would
+ * otherwise travel all the way into the stylesheet and quietly break the page.
+ * Anything that does not parse falls back to the default, the rest is clamped
+ * to 0..100.
+ */
+function percent(value, fallback) {
+	if (value == null || value == '')
+		return fallback;
+
+	const n = +value;
+
+	/* A failed conversion yields null; NaN is the only value that is not itself. */
+	if (n == null || n != n)
+		return fallback;
+
+	return (n < 0) ? 0 : ((n > 100) ? 100 : n);
+}
+
+/*
  * Bake /etc/portal/www/links.json from the uci configuration. The served page
  * is static, so the bookmarks are turned into a plain JSON document that the
  * frontend fetches.
@@ -434,6 +455,15 @@ function generate() {
 		title: general.title ?? 'Portal',
 		background: '',
 		background_v: '',
+		/*
+		 * Appearance, straight from uci as percentages. The frontend turns them
+		 * into CSS custom properties; 78/0/45 are the values portal.css used to
+		 * hard-code, so a configuration written before these options existed
+		 * keeps rendering exactly as it did.
+		 */
+		bg_veil: percent(general.bg_veil, 78),
+		bg_blur: percent(general.bg_blur, 0),
+		card_transparency: percent(general.card_transparency, 45),
 		links: collect_links(uci)
 	};
 

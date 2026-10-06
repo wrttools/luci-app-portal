@@ -1,3 +1,36 @@
+/*
+ * Turn the appearance percentages from links.json - the very values the LuCI
+ * sliders write - into the custom properties portal.css consumes. They go on
+ * <html> rather than into inline styles because the scrim and the photo are
+ * pseudo-elements, and an inline style on body cannot reach either of them.
+ *
+ * A value that is missing or unparsable falls back to what the stylesheet
+ * hard-coded before these options existed, so an upgraded portal whose uci has
+ * none of them renders exactly as it did before.
+ */
+function clamp(value, lo, hi, fallback) {
+  var n = parseFloat(value);
+
+  if (isNaN(n))
+    return fallback;
+
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function apply_appearance(d) {
+  var root = document.documentElement.style;
+  var blur = clamp(d.bg_blur, 0, 100, 0);
+
+  root.setProperty('--bg-veil', String(clamp(d.bg_veil, 0, 100, 78) / 100));
+
+  /* Percent of the maximum (20px), so the slider and the CSS share one scale. */
+  root.setProperty('--bg-blur', (blur * 0.2).toFixed(1) + 'px');
+
+  /* The slider is labelled "transparency", the alpha channel is opacity. */
+  root.setProperty('--card-alpha',
+    String((100 - clamp(d.card_transparency, 0, 100, 45)) / 100));
+}
+
 fetch('links.json')
   .then(function (r) {
     /*
@@ -12,6 +45,8 @@ fetch('links.json')
     return r.json();
   })
   .then(function (d) {
+    apply_appearance(d);
+
     if (d.title) {
       document.getElementById('title').textContent = d.title;
       document.title = d.title;
@@ -37,13 +72,13 @@ fetch('links.json')
           url += '?v=' + encodeURIComponent(d.background_v);
 
         /*
-         * Only background-image is set. The stylesheet's background shorthand
-         * already provides the position, size and repeat the picture needs, and
-         * its dark background-color is deliberately left in place as a
-         * fallback: the page text is light, so a failed image load would
-         * otherwise leave white-on-white.
+         * The photo lives on the pseudo-element that also carries the blur, so
+         * a custom property is the only way to point at it: body itself has to
+         * stay unblurred for the text on top to remain crisp. The colour set
+         * above stays as the fallback layer, which is why nothing is cleared
+         * when the image fails to load.
          */
-        document.body.style.backgroundImage = 'url("' + url + '")';
+        document.documentElement.style.setProperty('--bg-image', 'url("' + url + '")');
       }
     }
     var grid = document.getElementById('grid');

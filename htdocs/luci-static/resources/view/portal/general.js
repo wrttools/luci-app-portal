@@ -198,6 +198,48 @@ return view.extend({
 				return (value != null && value != '') ? value : _('none');
 			};
 
+			/*
+			 * Appearance sliders. The values stay percentages in uci; the portal page
+			 * turns them into the CSS custom properties the stylesheet consumes, so
+			 * the two can never disagree about the scale.
+			 *
+			 * The defaults are what portal.css hard-coded before these options existed
+			 * (a 78% scrim, no blur, cards at 45% transparency), so a configuration
+			 * that predates them keeps rendering exactly as before.
+			 */
+			o = s.option(form.RangeSliderValue, 'bg_veil', _('Background veil'),
+				_('How strongly a background image is dimmed, in percent. 0 leaves the ' +
+				  'photo as it is, 100 hides it behind a solid scrim. Only applies when a ' +
+				  'background image is set.'));
+			o.min = 0;
+			o.max = 100;
+			o.step = 1;
+			o.default = 78;
+			o.calcunits = '%';
+			o.rmempty = false;
+
+			o = s.option(form.RangeSliderValue, 'bg_blur', _('Background blur'),
+				_('Frosted-glass blur applied to a background image, in percent of the ' +
+				  'maximum (20 px). 0 keeps the photo sharp.'));
+			o.min = 0;
+			o.max = 100;
+			o.step = 1;
+			o.default = 0;
+			o.calcunits = '%';
+			o.rmempty = false;
+
+			o = s.option(form.RangeSliderValue, 'card_transparency',
+				_('Bookmark transparency'),
+				_('Transparency of the bookmark cards, in percent. 0 makes them solid, ' +
+				  '100 lets the background shine through completely; the text stays ' +
+				  'readable either way.'));
+			o.min = 0;
+			o.max = 100;
+			o.step = 1;
+			o.default = 45;
+			o.calcunits = '%';
+			o.rmempty = false;
+
 			/* ----------------------------------------------------- Maintenance -- */
 
 			s = m.section(form.TypedSection, 'portal', _('Maintenance'));
