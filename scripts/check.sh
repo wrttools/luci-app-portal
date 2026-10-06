@@ -114,6 +114,24 @@ else
 	done
 fi
 
+# ---------------------------------------------------------------- rpc call sites
+# Every rpc.declare() in this app uses the array form of `params`, which maps
+# the arguments positionally - `params: [ 'dir', 'name' ]` means the call has to
+# be fn(dir, name). An object argument is silently taken as the first parameter
+# itself, so the request ends up as { dir: { ... } } with no name, and ubus
+# rejects it with UBUS_STATUS_INVALID_ARGUMENT. The view used to report that
+# rejection as a success, so this is worth a build failure rather than a device
+# test. Declared methods are the `call*` bindings by convention.
+note "rpc call sites pass positional arguments"
+objcalls=$(grep -rnE 'call[A-Z][A-Za-z0-9_]*\(\{' \
+	htdocs/luci-static/resources 2>/dev/null || true)
+if [ -n "$objcalls" ]; then
+	printf '%s\n' "$objcalls" >&2
+	fail "an rpc call passes an object to an array-style params declaration"
+else
+	ok "no object arguments to declared rpc methods"
+fi
+
 # ---------------------------------------------------------------- line endings
 # .gitattributes forces LF in the index. A CRLF shell script breaks on the
 # device with "bad interpreter", so a CRLF working tree is worth failing on.

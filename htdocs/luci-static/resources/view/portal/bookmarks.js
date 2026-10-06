@@ -150,6 +150,22 @@ const BookmarkTable = form.TableSection.extend({
 		if (th == null)
 			return node;
 
+		/*
+		 * The column name moves down to the description row, where the other
+		 * column hints live - the tick box in the titles row speaks for itself.
+		 * That row exists because the Icon column carries a hint, and it holds
+		 * one cell per column, so the flag's cell sits at the same index the
+		 * titles row uses. Clearing the title text first also leaves the box as
+		 * the only child of its cell.
+		 */
+		th.textContent = '';
+
+		const descr = node.querySelector('tr.cbi-section-table-descr');
+		const hint = (descr != null) ? descr.children[this.children.indexOf(flag)] : null;
+
+		if (hint != null)
+			hint.textContent = _('Enabled');
+
 		this.select_all = E('input', {
 			type: 'checkbox',
 			title: _('Select all'),

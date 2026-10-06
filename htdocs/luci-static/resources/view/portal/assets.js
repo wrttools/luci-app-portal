@@ -31,22 +31,36 @@ const MIME = {
 
 const NAME_RE = /^[A-Za-z0-9_.\-]+$/;
 
+/*
+ * `reject: true` matters more here than anywhere else: without it a ubus level
+ * rejection arrives as the plain number 2 and the caller below reads that as a
+ * success, reloads the page and tells the user the upload worked. See run_rpc().
+ *
+ * `params` is the array form, which names the arguments positionally: the call
+ * sites pass dir_key(dir), name - not a { dir, name } object. An object would
+ * be taken as the first argument itself, so the request would carry
+ * { dir: { ... } } with no name at all, and ubus would answer with
+ * UBUS_STATUS_INVALID_ARGUMENT - the same silent failure in a new disguise.
+ */
 const callUpload = rpc.declare({
 	object: 'luci.portal',
 	method: 'upload',
-	params: [ 'dir', 'name' ]
+	params: [ 'dir', 'name' ],
+	reject: true
 });
 
 const callRemove = rpc.declare({
 	object: 'luci.portal',
 	method: 'remove',
-	params: [ 'dir', 'name' ]
+	params: [ 'dir', 'name' ],
+	reject: true
 });
 
 const callRename = rpc.declare({
 	object: 'luci.portal',
 	method: 'rename',
-	params: [ 'dir', 'name', 'new_name' ]
+	params: [ 'dir', 'name', 'new_name' ],
+	reject: true
 });
 
 function extension(name) {
@@ -205,7 +219,7 @@ function upload(dir, file) {
 				if (L.isObject(reply) && reply.failure)
 					throw new Error(reply.message || reply.failure);
 
-				return callUpload({ dir: dir_key(dir), name: name });
+				return callUpload(dir_key(dir), name);
 			});
 	}, _('Uploaded %s.').format(name)).then(function(res) {
 		if (res != null)
@@ -275,7 +289,7 @@ function rename_file(dir, entry) {
 					ui.hideModal();
 
 					return common.run_rpc(function() {
-						return callRename({ dir: dir_key(dir), name: entry.name, new_name: name });
+						return callRename(dir_key(dir), entry.name, name);
 					}, _('Renamed to %s.').format(name)).then(function(res) {
 						if (res != null)
 							reload_soon();
@@ -305,7 +319,7 @@ function remove_file(dir, entry) {
 					ui.hideModal();
 
 					return common.run_rpc(function() {
-						return callRemove({ dir: dir_key(dir), name: entry.name });
+						return callRemove(dir_key(dir), entry.name);
 					}, _('Deleted %s.').format(entry.name)).then(function(res) {
 						if (res != null)
 							reload_soon();
