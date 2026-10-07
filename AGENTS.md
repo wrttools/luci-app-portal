@@ -26,6 +26,8 @@ luci-app-portal — 给 OpenWrt / ImmortalWrt 用的静态 HTML 导航页：跑�
    `htdocs/luci-static/resources/view/portal/*.js`、`root/usr/share/rpcd/ucode/portal.uc`、
    `root/etc/init.d/portal`
 
+> 事实以源码为准：用 `read` 看结构、`grep` 查事实，文档只给坐标。
+
 ## 2. 常用命令（可直接复制执行）
 
 > **未运行过命令，不得声称「已通过检查」。** 本地无 WSL 时用 `python3 -m json.tool` 代替。
@@ -49,13 +51,19 @@ luci-app-portal — 给 OpenWrt / ImmortalWrt 用的静态 HTML 导航页：跑�
 
 - 保护分支 `main`，禁止直接推送。
 - 一个功能 = 一个 `feature/<名称>` 分支 = 一个 PR。
+- **新功能开发前，先在 `ROADMAP.md` 加一行**（状态 `planned`、写清**可判定**的验收标准），
+  确认后才转 `in-progress` 开干；小改动 / bugfix 无需走计划。
 - 提交：Conventional Commits，type 用英文前缀（`feat`/`fix`/`docs`/`test`/`chore`/`refactor`/`ci`）；描述可用中文；标题总长 ≤ 72 字符。
-- 每完成一项，更新 `ROADMAP.md` 对应行状态。
+- 每完成一项，更新 `ROADMAP.md` 对应行状态，并在 `CHANGELOG.md` 的 `[Unreleased]` 对应分类补一条。
 - **本项目特有**：改动任何 ubus 方法时，必须同步核对
   `root/usr/share/rpcd/acl.d/luci-app-portal.json` 的白名单 —— 只改 `.uc` 不改 ACL 的结果是
   `Access denied`，而这类失败在本地看不出来。
 
 ## 4. 红线（违反即回滚）
+
+红线分两级：**阻断级**是底线，触碰即回滚；**提醒级**是默认做法，偏离须在 PR 说明里写明理由。
+
+**阻断级（不可触碰）**
 
 1. 不得删除 / 跳过 / 弱化检查（含从 `scripts/check.sh` 摘掉一项、给它加 `|| true`、放宽断言），不得伪造「检查已通过」。
 2. 大改动先确认：单次改动 > 5 个文件 或 > 200 行，先给方案，等确认再动手。
@@ -63,10 +71,13 @@ luci-app-portal — 给 OpenWrt / ImmortalWrt 用的静态 HTML 导航页：跑�
 4. 不得为了让检查「变绿」而修改 CI、hook、lint 配置或门禁。
 5. 不得修改 `docs/adr/` 中「已接受」的记录；变更须新增 ADR。
 6. 绝不提交密钥 / token / 私钥 / `.env`（用环境变量或仓库外文件）。
-7. 含糊需求先提问；同一问题连续 2 次修复失败，停下说明现状并求助。
-8. 只改与任务相关的文件，不做无关重构、不顺手改格式。
-9. **本项目特有**：不得引入编译型依赖或构建步骤 —— 本项目是纯脚本包，引入工具链会让
+7. **本项目特有**：不得引入编译型依赖或构建步骤 —— 本项目是纯脚本包，引入工具链会让
    「clone 即可审查」这一性质失效，且 CI 无法在合理时间内验证。
+
+**提醒级（须写明理由）**
+
+8. 含糊需求先提问；同一问题连续 2 次修复失败，停下说明现状并求助。
+9. 只改与任务相关的文件，不做无关重构、不顺手改格式。
 10. **本项目特有**：不得把 `root/etc/init.d/portal` 之外的 shell 逻辑塞进 LuCI 视图 ——
     浏览器侧无法读取 `/proc/net/tcp[6]`，也拿不到 `uci` 之外的系统状态。
 
@@ -79,6 +90,7 @@ luci-app-portal — 给 OpenWrt / ImmortalWrt 用的静态 HTML 导航页：跑�
 - [ ] 改过 ubus 方法则 ACL 白名单已同步
 - [ ] 新增的用户可见字符串已进 `po/zh_Hans/portal.po` 与 `po/templates/portal.pot`
 - [ ] 相关文档（README / AGENTS / architecture / ADR）同步更新
+- [ ] `CHANGELOG.md` 的 `[Unreleased]` 已记录本次改动
 - [ ] `ROADMAP.md` 状态更新为 `done`
 
 ## 6. 并发协作（多 AI / 多人）
@@ -94,3 +106,38 @@ luci-app-portal — 给 OpenWrt / ImmortalWrt 用的静态 HTML 导航页：跑�
   `write.ubus` 里的 `generate` / `upload` / `rename` / `remove` 都能改设备上的文件。
 - **本项目特有**：上传文件名白名单（ASCII 字母数字与 `.` `-` `_`）与 2 MiB 上限
   在前端与后端**各做一次**，不得因为「前端已经拦了」就删掉后端校验。
+
+## 8. 单一事实源坐标
+
+> 本表只给「去哪查」，不给「查到什么」。事实层（版本号、协议、配置项、数据结构）一律以代码为准。
+> 任何文档都**不得**维护「完整文件清单 / 完整设置项清单」这类每次提交都漂移的枚举；源码是唯一事实源。
+
+| 契约 / 事实 | 唯一事实源在哪 |
+|---|---|
+| uci 配置项与默认值 | `root/etc/config/portal`（默认值）+ LuCI 表单 `htdocs/luci-static/resources/view/portal/*.js` |
+| ubus 方法契约 | `root/usr/share/rpcd/ucode/portal.uc` 的 `const methods = {…}` 表（每行一条）；ACL 白名单在 `root/usr/share/rpcd/acl.d/luci-app-portal.json` |
+| `links.json` 结构 | 生产者 `portal.uc` 的 `generate()`；消费者 `root/usr/share/portal/www/portal.js` |
+| 端口 → 服务分类规则 | `portal.uc` 的 `classify_port()` |
+| 门户页外观百分比语义 | `portal.uc` 的 `percent()` + `root/usr/share/portal/www/portal.css` 的 CSS 自定义属性 |
+| 版本号 | `Makefile` 的 `PKG_VERSION` / `PKG_RELEASE`；安装示例版本号在 `README.md` / `README.zh-CN.md` |
+| 质量门禁 | `scripts/check.sh`（本地与 CI 同源，`.github/workflows/build.yml` 只调用它） |
+
+## 9. 同改矩阵
+
+> 改了什么，同一回合必须过一遍哪些地方；只改一处导致两份文档打架是禁止的。
+
+| 改了什么 | 同回合必须过一遍 |
+|---|---|
+| `portal.uc` 的 `const methods = {…}` | `root/usr/share/rpcd/acl.d/luci-app-portal.json` 白名单（漏了 = 运行时 `Access denied`） |
+| 用户可见字符串 | `po/templates/portal.pot` + `po/zh_Hans/portal.po`（漏了中文界面会漏出英文） |
+| `Makefile` 的 `PKG_VERSION` / `PKG_RELEASE` | `README.md` / `README.zh-CN.md` 安装示例的版本号 |
+| uci 配置项 / 设置键 | 本文件 §8 坐标表对应行 + `README*.md` 的 *uci reference* |
+| 架构 / 分层 / 不变式 | `docs/architecture.md`；需要留痕的追加 `docs/adr/` |
+| 命令或门禁 | 本文件 §2 → `CONTRIBUTING.md`「本地检查」→ `.github/workflows/build.yml`，三者必须一致 |
+| 红线 / DoD | `docs/definition-of-done.md` 同步（不得放宽） |
+| 章节标题 | 全仓扫一遍按「§N」引用本文件的地方 |
+| 决策理由变更 | 新增一条 ADR，`docs/adr/` 旧记录原样保留 |
+| 发版（打 tag / 建 Release） | tag 用 `v2.0.0-rN`；release title 与 tag 一致；`CHANGELOG.md` 的 `[Unreleased]` 改名 `[2.0.0-rN] - 日期`（不带 v），顶部补空的 `[Unreleased]` |
+
+其中「`portal.uc` 方法表」与「用户可见字符串」两行漏掉时 `scripts/check.sh` 会抓到；
+其余几行不会 —— 靠这张表和 review。

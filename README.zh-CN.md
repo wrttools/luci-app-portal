@@ -5,8 +5,6 @@
 
 [English](README.md)
 
-> 🤖 使用 AI 编码助手时，请先阅读 [AGENTS.md](AGENTS.md)（行为规则与红线）。
-
 ## 它做什么
 
 路由器照常在原端口提供 LuCI。本应用额外加一个刻意保持极简的页面 —— 一个指向路由器
@@ -209,19 +207,6 @@ sh scripts/check.sh
 这就是 CI 跑的那道门禁：JS 语法、JSON 合法性、`shellcheck`、`msgfmt --check`、
 ubus↔ACL 对应关系、行尾、以及模板占位符残留。任一项失败即以非零退出。单条命令见
 [AGENTS.md](AGENTS.md) §2，代码约定见 [docs/architecture.md](docs/architecture.md)。
-
-## 文档
-
-| | |
-|---|---|
-| [AGENTS.md](AGENTS.md) | 给 AI 编码助手的规则 —— 命令、红线、完成定义 |
-| [ROADMAP.md](ROADMAP.md) | 功能状态表与未修缺陷 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 分支、提交与 PR 约定 |
-| [docs/architecture.md](docs/architecture.md) | 目录、分层、ubus 契约、命名 |
-| [docs/definition-of-done.md](docs/definition-of-done.md) | 本项目的「做完」标准 |
-| [docs/configuration.md](docs/configuration.md) | 工具链、Git、行尾、CI、分支保护 |
-| [docs/adr/](docs/adr/) | 架构决策记录 |
-| [CHANGELOG.md](CHANGELOG.md) | 版本变更记录 |
 
 ## 许可证
 

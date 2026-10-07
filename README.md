@@ -5,8 +5,6 @@ port by a dedicated `uhttpd` instance and configured entirely from LuCI.
 
 [中文说明](README.zh-CN.md)
 
->🤖 使用 AI 编码助手时，请先阅读 [AGENTS.md](AGENTS.md)（行为规则与红线）。
-
 ## What it does
 
 The router keeps serving its normal LuCI on its usual port. This app adds a
@@ -223,19 +221,6 @@ That is the same gate CI runs: JS syntax, JSON validity, `shellcheck`,
 placeholders. It exits non-zero on the first failure. Individual commands are
 listed in [AGENTS.md](AGENTS.md) §2, and the code conventions in
 [docs/architecture.md](docs/architecture.md).
-
-## Documentation
-
-| | |
-|---|---|
-| [AGENTS.md](AGENTS.md) | Rules for AI coding assistants — commands, red lines, DoD |
-| [ROADMAP.md](ROADMAP.md) | Feature status table and open defects |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Branch, commit and PR conventions |
-| [docs/architecture.md](docs/architecture.md) | Layout, layering, ubus contract, naming |
-| [docs/definition-of-done.md](docs/definition-of-done.md) | What "done" means here |
-| [docs/configuration.md](docs/configuration.md) | Toolchain, Git, line endings, CI, branch protection |
-| [docs/adr/](docs/adr/) | Architecture decision records |
-| [CHANGELOG.md](CHANGELOG.md) | Release notes |
 
 ## License
 

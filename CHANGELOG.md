@@ -3,6 +3,24 @@
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- 新增 `.github/pull_request_template.md`；`AGENTS.md` 增补 §8 单一事实源坐标、§9 同改矩阵，红线分为阻断级 / 提醒级。
+
+### Changed
+
+-
+
+### Fixed
+
+-
+
+### Removed
+
+-
+
 ## [2.0.0-r23] - 2026-10-06
 
 ### Added

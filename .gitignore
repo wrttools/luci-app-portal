@@ -32,3 +32,11 @@ Thumbs.db
 
 # --- WorkBuddy / local scratch ---
 .workbuddy/
+
+# --- Secrets (never commit) ---
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+!*.env.example

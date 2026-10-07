@@ -34,18 +34,7 @@ sh scripts/check.sh
 
 - 提交前请阅读 [AGENTS.md](AGENTS.md) 的「红线」。
 - 功能是否算完成，以 [docs/definition-of-done.md](docs/definition-of-done.md) 为准。
-
-## 改动了什么就要同时改什么
-
-| 你改了 | 还必须改 |
-|--------|----------|
-| `portal.uc` 的 `const methods = {…}` | `rpcd/acl.d/luci-app-portal.json` |
-| 用户可见字符串 | `po/templates/portal.pot`、`po/zh_Hans/portal.po` |
-| `Makefile` 的 `PKG_VERSION` | `README.md` / `README.zh-CN.md` 里的安装命令版本号 |
-| 本地检查项 | `AGENTS.md` §2（若命令有变） |
-| 某个「为什么」 | `docs/adr/` 增一条记录（已接受的记录不得改） |
-
-前两项漏掉时，`scripts/check.sh` 会抓到；后三项不会 —— 靠这条表和 review。
+- 「改了什么就要同改什么」见 [AGENTS.md](AGENTS.md) §9「同改矩阵」（该表已统一到 AGENTS.md，此处不再重复）。
 
 ## 许可证
 
