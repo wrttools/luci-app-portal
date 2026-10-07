@@ -8,6 +8,7 @@
 - [ ] `sh scripts/check.sh` 输出 `ALL CHECKS PASSED`（本地与 CI 同一个脚本）
 - [ ] 未引入无关改动（无顺手重构/格式化噪声）
 - [ ] 相关文档（README / AGENTS / architecture / ADR）同步更新
+- [ ] `CHANGELOG.md` 的 `[Unreleased]` 已记录本次改动
 - [ ] `ROADMAP.md` 状态更新为 `done`
 
 ## 本项目的替代项：无单元测试
